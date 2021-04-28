@@ -1,0 +1,9 @@
+gym
+pycolab
+scipy
+matplotlib
+numpy
+tensorflow
+flameprof
+bokeh
+pandas
