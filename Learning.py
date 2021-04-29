@@ -1,13 +1,11 @@
-from typing import List
+from typing import List, Union
 
 import gym
 import numpy as np
 from gym.envs.registration import register
 
-from constants import smallMap as map_sketch
 from impl.agent import Agent
-from impl.config import save_cfg
-from envs.env import CommonsGame
+from impl.config import cfg, save_cfg
 
 register(
     id='CommonsGame-v0',
@@ -18,8 +16,6 @@ register(
 TODO: Decide the configuration parameters of the environment. We give some example ones.
 """
 
-number_of_agents = 2
-
 RENDER_ENV = False
 SERVE_VISUALIZATION = True
 
@@ -28,66 +24,37 @@ def translate_state(state):
     return state
 
 
-# def learning_policy(state, action_space, q_function):
-#     """
-#     TODO: Policy that the agent uses while it is training. As a template, here you have a completely random policy
-#     :param state:  typically, a list of integers
-#     :param action_space: a list of integers representing the possible actions that an agent can do
-#     :param q_function: a numpy 2-d array (in tabular RL) that contains information about each state-action pair
-#     :return: a recommended action
-#     """
-#
-#     index = np.random.randint(low=0, high=len(action_space))
-#     return action_space[index]
-
-
-# def     update_q(q_function, current_state, current_action, current_reward, next_state):
-#     """
-#     TODO: method for updating the Q_function of the agent (this is the way it learns).
-#     As a template, it updates Q(s,a) with the current reward
-#
-#     :param q_function: a numpy 2-d array (in tabular RL) that contains information about each state-action pair
-#     :param current_state: a list of integers
-#     :param current_action: an integer
-#     :param current_reward: an integer
-#     :param next_state: a list of integers
-#     :return: an updated Q_function
-#     """
-#
-#     q_function[current_state][current_action] = current_reward
-#
-#     return q_function
-
 def new_action_space(action_space):
-    action_space.remove(CommonsGame.SHOOT)
-    action_space.remove(CommonsGame.TURN_CLOCKWISE)
-    action_space.remove(CommonsGame.TURN_COUNTERCLOCKWISE)
+    for removed_action in cfg().REMOVED_ACTIONS:
+        action_space.remove(removed_action)
+
     return action_space
 
 
-def learning_loop(environment):
+def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_callback=None, start_episode=-1):
     """
     :param environment: the environment already configured
-    :return:
+    :param episodes: the number of episodes to run
+    :param timesteps: the number of frames per episode
+    :param train: True if agents should learn, False if load a model from disk and just play
+    :param episode_callback: if provided then it is called after the end of every episode with data gathered
+    :param start_episode: episode index to start from. If train is False, then this is the index used to build the file
+    name for loading the agent's model from disk
+    :return: The agents created
     """
 
     action_space = np.array(new_action_space(list(range(environment.action_space.n))), dtype=np.int)
 
-    # q_functions = np.zeros((number_of_agents, len_state_space, len(action_space)))
-
-    agents = None  # type: List[Agent]
-    last_rewards = None  # type: List[float]
-
-    episodes = 10000
-    timesteps = 1000
+    agents = None  # type: Union[None, List[Agent]]
+    last_rewards = None  # type: Union[None, List[float]]
 
     episode_lengths = []
-    for episode in range(episodes):
+    for episode in range(start_episode, episodes):
         new_states = [translate_state(observation) for observation in environment.reset()]  # type: List[np.ndarray]
 
         if agents is None:
-            agents = [Agent(new_states[idx], action_space) for idx in range(number_of_agents)]
-            last_rewards = [0.0] * number_of_agents
+            agents = [Agent(new_states[idx], action_space, idx, episode) for idx in range(environment.num_agents)]
+            last_rewards = [0.0] * environment.num_agents
 
         for agent in agents:
             agent.new_episode()
@@ -101,19 +68,12 @@ def learning_loop(environment):
                 action_idx = agent.step(last_reward, new_state, training=True)
                 actions.append(action_space[action_idx] if action_idx is not None else None)
 
-            # for agent in agents:
-            #     action_i = learning_policy(state[agent], action_space, q_functions[agent])
-            #     n_actions.append(action_i)
-
             n_observations, n_rewards, n_done, n_info = environment.step(actions)
+            last_rewards = n_rewards  # rewards for the last action
             new_states = [translate_state(observation) for observation in n_observations]
 
             if RENDER_ENV:
                 environment.render()
-
-            # for agent in range(number_of_agents):
-            #     q_functions[agent] = update_q(q_functions[agent], state[agent], n_actions[agent],
-            #     n_rewards[agent], next_state[agent])
 
             # TODO: wise to stop episode right when all apples are gone?
             if all(n_done):
@@ -122,11 +82,20 @@ def learning_loop(environment):
         episode_lengths.append(timestep)
         print(episode_lengths)
 
-        for agent_idx, agent in enumerate(agents):
-            if not(episode % 2):
+        if train and not(episode % 2):
+            for agent_idx, agent in enumerate(agents):
                 agent.save(agent_idx)
 
+        if episode_callback is not None:
+            episode_callback(agents, episode, episode_lengths[-1])
+
     return agents
+
+
+def make_env():
+    tabular_rl = False
+    return gym.make('CommonsGame-v0', num_agents=cfg().NUM_AGENTS, map_sketch=cfg().MAP, visual_radius=3,
+                    full_state=True, tabular_state=tabular_rl)
 
 
 if __name__ == '__main__':
@@ -136,7 +105,4 @@ if __name__ == '__main__':
         from impl import vis
         vis.serve_visualization()
 
-    tabular_rl = False
-    env = gym.make('CommonsGame-v0', num_agents=number_of_agents, map_sketch=map_sketch, visual_radius=3,
-                   full_state=False, tabular_state=tabular_rl)
-    agents = learning_loop(env)
+    game_loop(make_env())

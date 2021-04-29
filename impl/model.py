@@ -8,9 +8,11 @@ LEARNING_RATE = 0.001
 
 
 class Model(Sequential):
-    def __init__(self, input_size, output_size):
-        super().__init__(name="SOAS_Model")
-        self.create_model(input_size, output_size)
+    def __init__(self, input_size, output_size, name="SOAS_Model"):
+        super().__init__(name=name)
+        self._input_size = input_size
+        self._output_size = output_size
+        self.create_model()
 
     def train_step(self, data):
         """
@@ -34,22 +36,28 @@ class Model(Sequential):
     def copy_variables(self, other: 'Model'):
         self.set_weights(other.get_weights())
 
-    def create_model(self, input_size, output_size):
+    def create_model(self):
         self.add(layers.Conv2D(32, (3, 3), strides=(1, 1),
                                activation='relu',
                                # default parameters result in He initialization that work better with relu activation
                                kernel_initializer=VarianceScaling(),
-                               input_shape=input_size))
+                               input_shape=self._input_size))
         self.add(layers.Conv2D(64, (2, 2), strides=(1, 1),
                                activation='relu',
                                # default parameters result in He initialization that work better with relu activation
                                kernel_initializer=VarianceScaling()))
         self.add(layers.Flatten())
         self.add(layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling()))
-        self.add(layers.Dense(np.prod(output_size), activation='relu', kernel_initializer=VarianceScaling()))
+        self.add(layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling()))
         self.summary()
 
         self.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
                      loss=losses.Huber(),
                      metrics=['accuracy'])
 
+    def get_config(self):
+        return {'input_size': self._input_size, 'output_size': self._output_size}
+
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        return cls(**config)

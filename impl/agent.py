@@ -7,31 +7,53 @@ import numpy as np
 from impl.model import Model
 from impl.replay_buffer import ReplayBuffer, ReplayFrame
 from impl.config import cfg, get_storage, ensure_folder
+from constants import model_name
+from tensorflow.keras.models import load_model
 
 
 class Agent:
-    def __init__(self, initial_state: np.ndarray, actions_ref: np.ndarray):
+    def __init__(self, initial_state: np.ndarray, actions_ref: np.ndarray, agent_idx: int,  episode_idx=-1):
         self._state_size = initial_state.shape
         self._action_size = actions_ref.shape
-        self._online_network = Model(self._state_size, self._action_size)
-        self._target_network = Model(self._state_size, self._action_size)
         self._frame = 0
         self._replay_buffer = ReplayBuffer(initial_state.shape, cfg().REPLAY_BUFFER_LENGTH,
                                            initial_state.dtype, actions_ref.dtype, np.dtype(np.float32))
         self._last_state = None
         self._last_action = None
-        self._episode_idx = -1
+
+        self._agent_idx = agent_idx
+        self._episode_idx = episode_idx
+        if self._episode_idx >= 0:
+            model_path = os.path.join(get_storage(), 'models', model_name(self._episode_idx, self._agent_idx, 'online'))
+            self._online_network = load_model(model_path, custom_objects={
+                'Model': Model
+            })
+            model_path = os.path.join(get_storage(), 'models', model_name(self._episode_idx, self._agent_idx, 'target'))
+            self._target_network = load_model(model_path, custom_objects={
+
+            })
+        else:
+            self._online_network = Model(self._state_size, self._action_size)
+            self._target_network = Model(self._state_size, self._action_size)
+
+        # Tracking variables
+        self.last_online_q_values = None
+        self.sum_rewards = 0
 
     def new_episode(self):
         self._last_state = None
         self._last_action = None
         self._episode_idx += 1
 
+        # Tracking variables
+        self.last_online_q_values = None
+        self.sum_rewards = 0
+
     def save(self, agent_idx):
         filepath = os.path.join(get_storage(), 'models')
         ensure_folder(filepath)
-        path_online = os.path.join(filepath, 'episode_{}_agent_{}_online'.format(self._episode_idx, str(agent_idx)))
-        path_target = os.path.join(filepath, 'episode_{}_agent_{}_target'.format(self._episode_idx, str(agent_idx)))
+        path_online = os.path.join(filepath, model_name(self._episode_idx, str(agent_idx), "online"))
+        path_target = os.path.join(filepath, model_name(self._episode_idx, str(agent_idx), "target"))
         self._online_network.save(path_online)
         self._target_network.save(path_target)
 
@@ -41,10 +63,8 @@ class Agent:
             self._frame += 1
             return None
 
-        if not training:
-            action = self._random_action()
-        else:
-            action = self._epsilon_greedy_action(new_state)
+        action = self._policy(new_state)
+        if training:
             if self._last_state is not None:
                 self._replay_buffer.remember(ReplayFrame(last_state=self._last_state, last_action=self._last_action,
                                                          reward=last_reward, next_state=new_state))
@@ -61,15 +81,16 @@ class Agent:
 
         return action
 
-    def _epsilon_greedy_action(self, new_state):
-        p_explore = max(cfg().EXPLORE_PROBABILITY_MAX - (self._frame * cfg().EXPLORATION_ANNEALING),
-                        cfg().EXPLORE_PROBABILITY_MIN)
-        if p_explore > random.random():
-            return self._random_action()
-        else:
-            qvalues = self._online_network(np.expand_dims(new_state, 0))
-            #  todo: fix: 2d action index
-            return np.squeeze(qvalues).argmax(),
+    def _policy(self, new_state, training=True):
+        if training:
+            p_explore = max(cfg().EXPLORE_PROBABILITY_MAX - (self._frame * cfg().EXPLORATION_ANNEALING),
+                            cfg().EXPLORE_PROBABILITY_MIN)
+            if p_explore > random.random():
+                return self._random_action()
+
+        self.last_online_q_values = qvalues = self._online_network(np.expand_dims(new_state, 0))
+        #  todo: fix: 2d action index
+        return np.squeeze(qvalues).argmax(),
 
     def _random_action(self) -> Tuple[int]:
         return tuple(int(random.choice(range(size))) for size in self._action_size)

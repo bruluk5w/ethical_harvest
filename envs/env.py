@@ -33,7 +33,7 @@ class CommonsGame(gym.Env):
         self.action_space = spaces.Discrete(10)
         ob_height = ob_width = visual_radius * 2 + 1
         # Setup game
-        self.numAgents = num_agents
+        self.num_agents = num_agents
         self.sightRadius = visual_radius
         self.agentChars = agentChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"[0:num_agents]
         self.mapHeight = len(map_sketch)
@@ -88,7 +88,7 @@ class CommonsGame(gym.Env):
         self.state, n_rewards, _ = self._game.play(n_actions)
 
         n_observations, done = self.get_observation()
-        n_done = [done] * self.numAgents
+        n_done = [done] * self.num_agents
         return n_observations, n_rewards, n_done, n_info
 
     def reset(self):
