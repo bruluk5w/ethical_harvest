@@ -124,7 +124,7 @@ class CommonsGame(gym.Env):
         plt.clf()
 
     def get_observation(self):
-        done = not (np.logical_or.reduce(self.state.layers['@'], axis=None))
+        done = not (np.logical_or.reduce(self.state.layers['@'][5:, :], axis=None))
         ags = [self._game.things[c] for c in self.agentChars]
         obs = []
 

@@ -1,3 +1,4 @@
+import atexit
 from typing import List, Union
 
 import gym
@@ -6,6 +7,8 @@ from gym.envs.registration import register
 
 from impl.agent import Agent
 from impl.config import cfg, save_cfg
+from impl.stats_to_file import QStatsDumper, get_trace_file_path, QStatsReader
+import concurrent.futures
 
 register(
     id='CommonsGame-v0',
@@ -17,7 +20,7 @@ TODO: Decide the configuration parameters of the environment. We give some examp
 """
 
 RENDER_ENV = False
-SERVE_VISUALIZATION = True
+SERVE_VISUALIZATION = False
 
 
 def translate_state(state):
@@ -31,15 +34,22 @@ def new_action_space(action_space):
     return action_space
 
 
-def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_callback=None, start_episode=-1):
+_threadPool = concurrent.futures.ThreadPoolExecutor()
+
+
+def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_callback=None, frame_callback=None,
+              start_episode=-1, verbose=True):
     """
     :param environment: the environment already configured
     :param episodes: the number of episodes to run
     :param timesteps: the number of frames per episode
     :param train: True if agents should learn, False if load a model from disk and just play
     :param episode_callback: if provided then it is called after the end of every episode with data gathered
+    :param frame_callback: if provided then it is called with data from every frame
     :param start_episode: episode index to start from. If train is False, then this is the index used to build the file
     name for loading the agent's model from disk
+    :param verbose If True then every frame some information may be printed to the console, else only at every episode
+    end
     :return: The agents created
     """
 
@@ -49,24 +59,35 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
     last_rewards = None  # type: Union[None, List[float]]
 
     episode_lengths = []
+
     for episode in range(start_episode, episodes):
         new_states = [translate_state(observation) for observation in environment.reset()]  # type: List[np.ndarray]
 
         if agents is None:
             agents = [Agent(new_states[idx], action_space, idx, episode) for idx in range(environment.num_agents)]
+            if episode < 0:
+                for agent in agents:
+                    agent.save_model()
+
             last_rewards = [0.0] * environment.num_agents
 
         for agent in agents:
             agent.new_episode()
 
         timestep = None
+        n_torture_frames = 0
         for timestep in range(timesteps):
-            print("--Episode", episode, ", Time step", timestep, "--")
-            actions = []
-            for agent, last_reward, new_state in zip(agents, last_rewards, new_states):
-                # agent chooses index of action since action space is constant
-                action_idx = agent.step(last_reward, new_state, training=True)
-                actions.append(action_space[action_idx] if action_idx is not None else None)
+            if verbose:
+                print("--Episode", episode, ", Time step", timestep, "--")
+            actions = [None] * len(agents)
+
+            futures_to_agent = {_threadPool.submit(agent.step, last_reward, new_state, training=train): agent
+                                for agent, last_reward, new_state in zip(agents, last_rewards, new_states)}
+
+            for future in concurrent.futures.as_completed(futures_to_agent):
+                agent = futures_to_agent[future]
+                action_idx = future.result()
+                actions[agent.agent_idx] = action_space[action_idx] if action_idx is not None else None
 
             n_observations, n_rewards, n_done, n_info = environment.step(actions)
             last_rewards = n_rewards  # rewards for the last action
@@ -75,16 +96,17 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
             if RENDER_ENV:
                 environment.render()
 
-            # TODO: wise to stop episode right when all apples are gone?
             if all(n_done):
-                break
+                n_torture_frames += 1
+                if n_torture_frames > cfg().NUM_TORTURE_FRAMES:
+                    break
 
         episode_lengths.append(timestep)
         print(episode_lengths)
 
         if train and not(episode % 2):
             for agent_idx, agent in enumerate(agents):
-                agent.save(agent_idx)
+                agent.save_weights(agent_idx)
 
         if episode_callback is not None:
             episode_callback(agents, episode, episode_lengths[-1])
@@ -105,4 +127,12 @@ if __name__ == '__main__':
         from impl import vis
         vis.serve_visualization()
 
-    game_loop(make_env())
+    dumper = QStatsDumper(get_trace_file_path())
+    reader = QStatsReader(get_trace_file_path())
+    reader.start()
+
+    @atexit.register
+    def cleanup():
+        reader.stop()
+
+    game_loop(make_env(), verbose=False, episode_callback=dumper.on_episode_end)

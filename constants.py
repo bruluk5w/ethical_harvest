@@ -58,9 +58,13 @@ MAPS = {
 }
 
 
-def model_name(episode_idx, agent_idx, model_type):
-    return 'episode_{episode_idx}_agent_{agent_idx}_{type}'.format(
-        episode_idx=episode_idx, agent_idx=agent_idx, type=model_type)
+def model_name(agent_idx, model_type, episode_idx=None):
+    return (
+        'agent_{agent_idx}_{type}'.format(agent_idx=agent_idx, type=model_type)
+        if episode_idx is None else
+        'episode_{episode_idx}_agent_{agent_idx}_{type}'.format(
+            episode_idx=episode_idx, agent_idx=agent_idx, type=model_type)
+    )
 
 
 def get_model_name_params(model_name: str):

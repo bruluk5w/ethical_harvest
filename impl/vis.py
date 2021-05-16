@@ -1,19 +1,22 @@
+import concurrent.futures
 import os
+import random
+from copy import deepcopy
 from itertools import groupby, islice
-from typing import Union, Dict, Tuple, List
+from threading import Thread, Lock
+from typing import Union, List
 
+from bokeh.io import show, output_file
 from bokeh.layouts import column
-from bokeh.models import ColumnDataSource, Slider, Dropdown, CustomJSTransform
+from bokeh.models import ColumnDataSource, Dropdown
 from bokeh.plotting import figure
 from bokeh.server.server import Server
-from threading import Thread, Lock
-
 from bokeh.transform import transform
 
+from constants import get_model_name_params
 from impl.config import get_experiment_names, get_storage, cfg, load_cfg, set_config
 from impl.js_transformers import shift_right, shift_left, mean
-from copy import deepcopy
-from constants import get_model_name_params
+from impl.q_stats_accumulator import QStatsAccumulator
 
 
 class VisApp:
@@ -24,14 +27,14 @@ class VisApp:
             self._name = experiment_names[0] if experiment_names else None  # name of the selected experiment
             self._experiment_dropdown = Dropdown(label="No experiments available" if self._name is None else self._name,
                                                  menu=experiment_names)
+            self._experiment_dropdown.on_click(self._on_experiment_change)
         else:
             self._name = cfg().EXPERIMENT_NAME
             assert self._name is not None
             self._experiment_dropdown = Dropdown(label=self._name)
 
         self._storage = None  # folder for all the data of the experiment
-        self._experiment_dropdown.on_click(self._on_experiment_change)
-        self._q_series = {'episode': [], 'q_max': [], 'q_min': [], 'q_avg': [], 'real_q': []}
+        self._q_series = {'episode': [0], 'q_max': [1], 'q_min': [-1], 'q_avg': [0.25], 'real_q': [0.75]}
         self._q_series_src = ColumnDataSource(self._q_series)
 
         self._value_estimates_plot = figure(x_axis_label='episodes', y_axis_label='value_estimates',
@@ -46,19 +49,12 @@ class VisApp:
                                         source=self._q_series_src,
                                         color='blue')
 
-        self._load_experiment(self._name)
-
-        # def callback(attr, old, new):
-        #     if new == 0:
-        #         data = df
-        #     else:
-        #         data = df.rolling(f"{new}D").mean()
-        #     source.data = ColumnDataSource.from_df(data)
-        #
-        # slider = Slider(start=0, end=30, value=0, step=1, title="Smoothing by N Days")
-        # slider.on_change('value', callback)
-
+        # put the results in a column and show
         doc.add_root(column(self._experiment_dropdown, self._value_estimates_plot))
+
+        self.threadPool = concurrent.futures.ThreadPoolExecutor()
+
+        self._load_experiment(self._name)
 
     def _on_experiment_change(self, event):
         self._experiment_dropdown.label = event.item
@@ -88,51 +84,38 @@ class VisApp:
         for seq in self._q_series.values():
             seq.clear()
 
-        individual_model_params = (get_model_name_params(name) for name in
-                                   next(os.walk(os.path.join(self._storage, 'models')))[1])
+        checkpoint_params = (get_model_name_params(os.path.splitext(name)[0]) for name in
+                             next(os.walk(os.path.join(self._storage, 'weights')))[2])
         episode_idx_key = lambda params: params[0]
-        individual_model_params = sorted((params for params in individual_model_params if params[0] is not None),
-                                         key=episode_idx_key)
-        frames = ((key, *islice(zip(*group), 1, None)) for key, group in groupby(individual_model_params, key=episode_idx_key))
+        checkpoint_params = sorted((params for params in checkpoint_params if params[0] is not None),
+                                   key=episode_idx_key)
+        frames = ((key, *islice(zip(*group), 1, None)) for key, group in groupby(checkpoint_params, key=episode_idx_key))
 
-        for episode_idx, agent_indices, model_types in frames:
-            #model_path = os.path.join(self._storage, saved_model)
-            #model = load_model(model_path, episode, )
-            self._load_episode_frame(episode_idx, agent_indices, model_types)
+        # Start the load operations and mark each future with its URL
+        self.future_to_frame = {
+            self.threadPool.submit(self._load_episode_frame, episode_idx, agent_indices, model_types): episode_idx
+            for episode_idx, agent_indices, model_types in frames
+        }
+
+        # for episode_idx, agent_indices, model_types in frames:
+        #
+        #     self._load_episode_frame(episode_idx, agent_indices, model_types)
 
     def _load_episode_frame(self, episode_idx: int, agent_indices: List[int], model_types: List[str]):
         agent_indices = sorted(k for k, _ in groupby(agent_indices))
         if agent_indices != list(range(len(agent_indices))) or len(agent_indices) != cfg().NUM_AGENTS:
             print("Saved models for episode {} missing. Skipping frame.".format(episode_idx))
             return
-
-        frames = 0
-        rewards = 0
-        max_q = float('-inf')
-        min_q = float('+inf')
-        sum_q = 0
-        # episode = -1
-
-        def accumulated_q_stats(agents, episode_idx, episode_length):
-            nonlocal frames, rewards, max_q, min_q, sum_q  # , episode
-            # episode = episode_idx
-            for agent in agents:
-                # read the predictions of the agent on the expected total discounted rewards for the actions
-                q = max(agent.last_online_q_values)
-                max_q, min_q = max(max_q, q), min(min_q, q)
-                sum_q += q
-                rewards += agent.sum_rewards
-                frames += episode_length
-
-        game_loop(make_env(), episodes=1, train=False, episode_callback=accumulated_q_stats, start_episode=episode_idx)
+        acc = QStatsAccumulator()
+        game_loop(make_env(), episodes=episode_idx + 1, train=False, episode_callback=acc, start_episode=episode_idx, verbose=False)
 
         self._q_series['episode'].append(episode_idx)
-        self._q_series['max_q'].append(max_q)
-        self._q_series['min_q'].append(min_q)
-        self._q_series['avg_q'].append(sum_q / frames)
-        self._q_series['real_q'].append(rewards / frames)
+        self._q_series['q_max'].append(acc.max_q)
+        self._q_series['q_min'].append(acc.min_q)
+        self._q_series['q_avg'].append(acc.sum_q / acc.frames)
+        self._q_series['real_q'].append(acc.rewards / acc.frames)
 
-        self._q_series_src.stream({attr: seq[-1] for attr, seq in self._q_series.items()})
+        self._q_series_src.stream({attr: [seq[-1]] for attr, seq in self._q_series.items()})
 
 
 __server = None  # type: Union[None, Server]
@@ -140,14 +123,14 @@ __server_thread = None  # type: Union[Thread, None]
 __server_lock = Lock()
 
 
-def serve_visualization():
+def serve_visualization(port=5006):
     global __server
     global __server_thread
     with __server_lock:
         if __server is None:
-            __server = Server({'/': VisApp})
+            __server = Server({'/': VisApp}, port=port)
             __server.start()
-            print('Opening Bokeh application on http://localhost:5006/')
+            print('Opening Bokeh application on http://localhost:{}/'.format(port))
             __server.io_loop.add_callback(__server.show, "/")
             __server_thread = Thread(target=__server.io_loop.start)
             __server_thread.start()
@@ -176,4 +159,4 @@ _STANDALONE = False
 if __name__ == '__main__':
     _STANDALONE = True
     from Learning import game_loop, make_env
-    serve_visualization()
+    serve_visualization(port=5007)
