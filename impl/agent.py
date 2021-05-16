@@ -37,6 +37,7 @@ class Agent:
         # Tracking variables
         self.last_online_q_values = None
         self.last_reward = None
+        self.last_explore_probability = None
 
     @property
     def agent_idx(self):
@@ -50,6 +51,7 @@ class Agent:
         # Tracking variables
         self.last_online_q_values = None
         self.last_reward = None
+        self.last_explore_probability = None
 
     def save_model(self):
         path_online, path_target = self._make_model_path()
@@ -103,11 +105,14 @@ class Agent:
 
     def _policy(self, new_state, training=True):
         if training:
-            p_explore = max(cfg().EXPLORE_PROBABILITY_MAX - (self._frame * cfg().EXPLORATION_ANNEALING),
-                            cfg().EXPLORE_PROBABILITY_MIN)
+            self._last_explore_probability = p_explore = \
+                max(cfg().EXPLORE_PROBABILITY_MAX - (self._frame * cfg().EXPLORATION_ANNEALING),
+                    cfg().EXPLORE_PROBABILITY_MIN)
             if p_explore > random.random():
                 self.last_online_q_values = None
                 return self._random_action()
+        else:
+            self._last_explore_probability = 0.0
 
         self.last_online_q_values = qvalues = self._online_network(np.expand_dims(new_state, 0))
         return np.squeeze(qvalues).argmax(),

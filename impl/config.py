@@ -62,7 +62,7 @@ def cfg():
 
 
 # General config
-__DEFAULT_EXPERIMENT_NAME = 'first_print_run_small_map'
+__DEFAULT_EXPERIMENT_NAME = 'disk_run'
 # Agent training config
 __DEFAULT_TARGET_NETWORK_UPDATE_FREQUENCY = 50
 __DEFAULT_MINI_BATCH_SIZE = 32

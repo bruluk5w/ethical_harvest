@@ -96,6 +96,9 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
             if RENDER_ENV:
                 environment.render()
 
+            if frame_callback:
+                frame_callback(agents, episode)
+
             if all(n_done):
                 n_torture_frames += 1
                 if n_torture_frames > cfg().NUM_TORTURE_FRAMES:
@@ -109,7 +112,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
                 agent.save_weights(agent_idx)
 
         if episode_callback is not None:
-            episode_callback(agents, episode, episode_lengths[-1])
+            episode_callback(agents, episode)
 
     return agents
 
@@ -128,11 +131,15 @@ if __name__ == '__main__':
         vis.serve_visualization()
 
     dumper = QStatsDumper(get_trace_file_path())
-    reader = QStatsReader(get_trace_file_path())
-    reader.start()
+    reader = QStatsReader(get_trace_file_path(),)
 
     @atexit.register
     def cleanup():
         reader.stop()
 
-    game_loop(make_env(), verbose=False, episode_callback=dumper.on_episode_end)
+    game_loop(
+        make_env(),
+        episode_callback=dumper.on_episode_end,
+        frame_callback=dumper.on_episode_frame,
+        verbose=True
+    )
