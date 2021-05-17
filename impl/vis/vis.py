@@ -1,27 +1,24 @@
-import concurrent.futures
 import os
-import random
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from itertools import groupby, islice
 from threading import Thread, Lock
 from typing import Union, List
 
-from bokeh.io import show, output_file
+from bokeh.document import Document
 from bokeh.layouts import column
-from bokeh.models import ColumnDataSource, Dropdown
-from bokeh.plotting import figure
+from bokeh.models import Dropdown
 from bokeh.server.server import Server
-from bokeh.transform import transform
 
 from constants import get_model_name_params
 from impl.config import get_experiment_names, get_storage, cfg, load_cfg, set_config
-from impl.js_transformers import shift_right, shift_left, mean
-from impl.q_stats_accumulator import QStatsAccumulator
+from impl.stats_to_file import QStatsDumper
+from impl.vis.stats_panel import StatsPanel
 
 
 class VisApp:
 
-    def __init__(self, doc):
+    def __init__(self, doc: Document):
         if _STANDALONE:
             experiment_names = get_experiment_names()
             self._name = experiment_names[0] if experiment_names else None  # name of the selected experiment
@@ -34,25 +31,10 @@ class VisApp:
             self._experiment_dropdown = Dropdown(label=self._name)
 
         self._storage = None  # folder for all the data of the experiment
-        self._q_series = {'episode': [0], 'q_max': [1], 'q_min': [-1], 'q_avg': [0.25], 'real_q': [0.75]}
-        self._q_series_src = ColumnDataSource(self._q_series)
+        self._thread_pool = ThreadPoolExecutor()
+        self._stats_panel = StatsPanel(doc, self._thread_pool)
 
-        self._value_estimates_plot = figure(x_axis_label='episodes', y_axis_label='value_estimates',
-                                            title="Size of q values")
-
-        self._value_estimates_plot.quad(top='q_max', bottom='q_min',
-                                        left=transform('episode', shift_left), right=transform('episode', shift_right),
-                                        source=self._q_series_src,
-                                        color='red', alpha=0.5)
-        self._value_estimates_plot.line(x='episode', y='q_avg', source=self._q_series_src, color='red')
-        self._value_estimates_plot.line(x='episode', y=transform('real_q', mean),
-                                        source=self._q_series_src,
-                                        color='blue')
-
-        # put the results in a column and show
-        doc.add_root(column(self._experiment_dropdown, self._value_estimates_plot))
-
-        self.threadPool = concurrent.futures.ThreadPoolExecutor()
+        doc.add_root(column(self._experiment_dropdown, self._stats_panel.get_layout()))
 
         self._load_experiment(self._name)
 
@@ -60,12 +42,14 @@ class VisApp:
         self._experiment_dropdown.label = event.item
         self._load_experiment(event.item)
 
-    def _load_experiment(self, name, ):
+    def _load_experiment(self, name):
         global _STANDALONE
 
         if name is None:
             return
 
+        self._stats_panel.set_experiment(self._name)
+        return
         if not _STANDALONE:
             return
         else:
@@ -106,7 +90,7 @@ class VisApp:
         if agent_indices != list(range(len(agent_indices))) or len(agent_indices) != cfg().NUM_AGENTS:
             print("Saved models for episode {} missing. Skipping frame.".format(episode_idx))
             return
-        acc = QStatsAccumulator()
+        acc = QStatsDumper()
         game_loop(make_env(), episodes=episode_idx + 1, train=False, episode_callback=acc, start_episode=episode_idx, verbose=False)
 
         self._q_series['episode'].append(episode_idx)

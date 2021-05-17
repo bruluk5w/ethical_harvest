@@ -62,7 +62,7 @@ def cfg():
 
 
 # General config
-__DEFAULT_EXPERIMENT_NAME = 'disk_run'
+__DEFAULT_EXPERIMENT_NAME = 'disk_run_2'
 # Agent training config
 __DEFAULT_TARGET_NETWORK_UPDATE_FREQUENCY = 50
 __DEFAULT_MINI_BATCH_SIZE = 32
@@ -76,8 +76,8 @@ __DEFAULT_NUM_TORTURE_FRAMES = 20
 __DEFAULT_EXPLORE_PROBABILITY_MAX = 1.0 + __DEFAULT_REPLAY_BUFFER_MIN_LENGTH_FOR_USE * __DEFAULT_EXPLORATION_ANNEALING
 # environment config
 __DEFAULT_REMOVED_ACTIONS = [CommonsGame.TURN_CLOCKWISE, CommonsGame.TURN_COUNTERCLOCKWISE, CommonsGame.SHOOT]
-__DEFAULT_NUM_AGENTS = 3
-__DEFAULT_MAP = MAPS['smallMap']
+__DEFAULT_NUM_AGENTS = 2
+__DEFAULT_MAP = MAPS['tinyMap']
 
 if __cfg is None:
     set_config(
@@ -101,9 +101,13 @@ if __cfg is None:
 
 
 def get_storage():
-    path = os.path.join(os.getcwd(), cfg().EXPERIMENT_NAME)
+    path = get_storage_for_experiment(cfg().EXPERIMENT_NAME)
     ensure_folder(path)
     return path
+
+
+def get_storage_for_experiment(experiment_name):
+    return os.path.join(os.getcwd(), experiment_name)
 
 
 def get_experiment_names():

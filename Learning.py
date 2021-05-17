@@ -1,4 +1,5 @@
 import atexit
+import concurrent.futures
 from typing import List, Union
 
 import gym
@@ -8,19 +9,15 @@ from gym.envs.registration import register
 from impl.agent import Agent
 from impl.config import cfg, save_cfg
 from impl.stats_to_file import QStatsDumper, get_trace_file_path, QStatsReader
-import concurrent.futures
 
 register(
     id='CommonsGame-v0',
     entry_point='envs:CommonsGame',
 )
 
-"""
-TODO: Decide the configuration parameters of the environment. We give some example ones.
-"""
 
 RENDER_ENV = False
-SERVE_VISUALIZATION = False
+SERVE_VISUALIZATION = True
 
 
 def translate_state(state):
@@ -127,7 +124,7 @@ if __name__ == '__main__':
     save_cfg()
 
     if SERVE_VISUALIZATION:
-        from impl import vis
+        from impl.vis import vis
         vis.serve_visualization()
 
     dumper = QStatsDumper(get_trace_file_path())

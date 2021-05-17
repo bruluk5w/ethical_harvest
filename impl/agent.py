@@ -105,14 +105,14 @@ class Agent:
 
     def _policy(self, new_state, training=True):
         if training:
-            self._last_explore_probability = p_explore = \
+            self.last_explore_probability = p_explore = \
                 max(cfg().EXPLORE_PROBABILITY_MAX - (self._frame * cfg().EXPLORATION_ANNEALING),
                     cfg().EXPLORE_PROBABILITY_MIN)
             if p_explore > random.random():
                 self.last_online_q_values = None
                 return self._random_action()
         else:
-            self._last_explore_probability = 0.0
+            self.last_explore_probability = 0.0
 
         self.last_online_q_values = qvalues = self._online_network(np.expand_dims(new_state, 0))
         return np.squeeze(qvalues).argmax(),
