@@ -1,7 +1,8 @@
+import typing
 from enum import Enum
 from typing import NamedTuple, List, Union
-
 import numpy as np
+import math
 
 
 class Properties(Enum):
@@ -20,10 +21,11 @@ class SummaryProperties(Enum):
 
 
 Summary = NamedTuple('Summary', [
-    ('max_q', List[float]),
-    ('min_q', List[float]),
-    ('avg_q', List[float]),
-    ('episode_start', List[int]),
+    ('max_q', Union[List[float], np.ndarray]),
+    ('min_q', Union[List[float], np.ndarray]),
+    ('avg_q', Union[List[float], np.ndarray]),
+    ('sum_reward', Union[List[float], np.ndarray]),
+    ('episode_start', Union[List[int], np.ndarray]),
 ])
 
 AgentSeries = NamedTuple('AgentSeries', [
@@ -54,8 +56,10 @@ def build_summary(stats: Stats):
     # make all series the same length
     for agent_series in stats.agent_series:
         for series, t in ((getattr(agent_series, attr), t) for attr, t in agent_series._field_types.items()):
-            if t.__origin__ is List:
+            if t.__origin__ is list:
                 default_t = t.__args__[0]
+                if hasattr(default_t, '__origin__') and default_t.__origin__ is typing.Union:
+                    default_t = default_t.__args__[0]
                 default_value = _default_values.get(default_t, None)
                 if default_value is None:
                     default_value = default_t()
@@ -63,39 +67,65 @@ def build_summary(stats: Stats):
                 series.extend(default_value for _ in range(max_frames - len(series) + 1))
 
     for idx, agent_series in enumerate(stats.agent_series):
-        summary = agent_series.summary
-        episode_start = 0
-        for episode_end in stats.episode_ends:
-            summary.max_q.append(max(agent_series.last_q[episode_start:episode_end]))
-            summary.min_q.append(min(agent_series.last_q[episode_start:episode_end]))
-            summary.avg_q.append(sum(agent_series.last_q[episode_start:episode_end]) / (episode_end - episode_start))
-            summary.episode_start.append(episode_start)
-            episode_start = episode_end
-
-        summary.episode_start.append(episode_start)
-
-        stats.agent_series[idx] = summary._replace(
-            max_q=np.array(summary.max_q),
-            min_q=np.array(summary.max_q),
-            avg_q=np.array(summary.max_q),
-            episode_start=np.array(summary.max_q),
+        # convert to numpy and initialize per agent summary
+        last_q = np.ma.masked_invalid(agent_series.last_q)
+        last_reward = np.ma.masked_invalid(agent_series.last_reward)
+        last_explore = np.ma.masked_invalid(agent_series.last_explore_probability)
+        stats.agent_series[idx] = agent_series._replace(
+            last_q=last_q,
+            last_reward=last_reward,
+            last_explore_probability=last_explore,
+            summary=Summary(
+                max_q=np.empty((len(stats.episode_ends),), dtype=last_q.dtype),
+                min_q=np.empty((len(stats.episode_ends),), dtype=last_q.dtype),
+                avg_q=np.empty((len(stats.episode_ends),), dtype=last_q.dtype),
+                sum_reward=np.empty((len(stats.episode_ends),), dtype=last_reward.dtype),
+                episode_start=np.empty((len(stats.episode_ends),), dtype=np.int),
+            )
         )
+
+        # calculate per agent summary
+        agent_series = stats.agent_series[idx]
+        summary = agent_series.summary
+
+        episode_start = 0
+        for episode_idx, episode_end in enumerate(stats.episode_ends):
+            episode_last_q = agent_series.last_q[episode_start:episode_end]
+            episode_last_reward = agent_series.last_reward[episode_start:episode_end]
+            summary.max_q[episode_idx] = episode_last_q.max()
+            summary.min_q[episode_idx] = episode_last_q.min()
+            summary.avg_q[episode_idx] = episode_last_q.mean()
+            summary.sum_reward[episode_idx] = episode_last_reward.sum()
+            summary.episode_start[episode_idx] = episode_start
+            episode_start = episode_end
 
     stats = stats._replace(
         summary=Summary(
             max_q=stats.agent_series[0].summary.max_q.copy(),
             min_q=stats.agent_series[0].summary.min_q.copy(),
             avg_q=stats.agent_series[0].summary.avg_q.copy(),
+            sum_reward=stats.agent_series[0].summary.sum_reward.copy(),
             episode_start=stats.agent_series[0].summary.episode_start.copy(),
         )
     )
-    summary = stats.summary
-    for agent_series in stats.agent_series[1:]:
-        summary.max_q += agent_series.summary.max_q
-        summary.min_q += agent_series.summary.min_q
-        summary.avg_q += agent_series.summary.avg_q
 
-    num_agents = len(stats.agent_series)
-    summary.max_q /= num_agents
-    summary.min_q /= num_agents
-    summary.avg_q /= num_agents
+    summary = stats.summary
+    num_not_nan = (~np.isnan(stats.summary.avg_q.data)).astype(np.int)
+    for agent_series in stats.agent_series[1:]:
+        np.add(num_not_nan, ~np.isnan(agent_series.summary.avg_q), out=num_not_nan)
+        np.add(summary.max_q, agent_series.summary.max_q, out=summary.max_q)
+        np.add(summary.min_q, agent_series.summary.min_q, out=summary.min_q)
+        np.add(summary.avg_q, agent_series.summary.avg_q, out=summary.avg_q)
+        np.add(summary.sum_reward, agent_series.summary.sum_reward, out=summary.sum_reward)
+
+    np.divide(summary.max_q, num_not_nan, out=summary.max_q, where=num_not_nan > 0)
+    np.divide(summary.min_q, num_not_nan, out=summary.min_q, where=num_not_nan > 0)
+    np.divide(summary.avg_q, num_not_nan, out=summary.avg_q, where=num_not_nan > 0)
+    np.divide(summary.sum_reward, num_not_nan, out=summary.sum_reward, where=num_not_nan > 0)
+
+    np.nan_to_num(summary.max_q, copy=False, nan=0.0)
+    np.nan_to_num(summary.min_q, copy=False, nan=0.0)
+    np.nan_to_num(summary.avg_q, copy=False, nan=0.0)
+    np.nan_to_num(summary.sum_reward, copy=False, nan=0.0)
+
+    return stats

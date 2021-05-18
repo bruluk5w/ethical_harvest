@@ -28,5 +28,5 @@ class DataSink:
     @gen.coroutine
     @without_document_lock
     def _build(self, s: Stats):
-        yield self._thread_pool.submit(build_summary, s)
+        s = yield self._thread_pool.submit(build_summary, s)
         self._target_doc.add_next_tick_callback(partial(self._update_callback, s))

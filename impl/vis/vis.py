@@ -47,7 +47,7 @@ class VisApp:
 
         if name is None:
             return
-
+        self._name = name
         self._stats_panel.set_experiment(self._name)
         return
         if not _STANDALONE:
@@ -116,7 +116,7 @@ def serve_visualization(port=5006):
             __server.start()
             print('Opening Bokeh application on http://localhost:{}/'.format(port))
             __server.io_loop.add_callback(__server.show, "/")
-            __server_thread = Thread(target=__server.io_loop.start)
+            __server_thread = Thread(target=__server.io_loop.start, name="Server Thread")
             __server_thread.start()
         else:
             print('Cannot start bokeh server twice. It should already be running on http://localhost:5006/')
@@ -142,5 +142,4 @@ _STANDALONE = False
 
 if __name__ == '__main__':
     _STANDALONE = True
-    from Learning import game_loop, make_env
-    serve_visualization(port=5007)
+    serve_visualization(port=5008)

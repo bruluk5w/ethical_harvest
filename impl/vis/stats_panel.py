@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from typing import Union
 
+import numpy as np
 from bokeh.document import Document
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource, Band
@@ -10,6 +11,7 @@ from impl.config import get_storage_for_experiment
 from impl.stats import Properties, SummaryProperties, Stats
 from impl.stats_to_file import QStatsReader, get_trace_file_path
 from impl.vis.data_sink import DataSink
+import math
 
 
 class StatsPanel:
@@ -19,6 +21,7 @@ class StatsPanel:
 
         self._episode_summary_plot = figure(x_axis_label='frames', y_axis_label='value_estimates',
                                             title="Size of q values")
+        self._episode_summary_avg_q_line = None
 
         self._episode_summary_src = ColumnDataSource()
         self._episode_detail_src = ColumnDataSource()
@@ -54,30 +57,37 @@ class StatsPanel:
             path = get_storage_for_experiment(experiment_name)
             self._stats_reader = QStatsReader(
                 get_trace_file_path(path),
-                self._data_sink.on_new_data,
-                update_per_episode=False
+                self._data_sink.on_new_data
             )
 
     def update_data(self, s: Stats):
-        self._episode_summary_src.data = {
-            SummaryProperties.MAX_Q.name: s.summary.max_q,
-            SummaryProperties.MIN_Q.name: s.summary.min_q,
-            SummaryProperties.AVG_Q.name: s.summary.avg_q,
-            SummaryProperties.EPISODE_START: s.summary.episode_start,
-        }
-        # self._episode_detail_src = {
-        #     Properties.LAST_Q
-        # }
+        try:
+            self._episode_summary_src.data = src = {
+                SummaryProperties.MAX_Q.value: s.summary.max_q,
+                SummaryProperties.MIN_Q.value: s.summary.min_q,
+                SummaryProperties.AVG_Q.value: s.summary.avg_q,
+                SummaryProperties.SUM_REWARD.value: s.summary.sum_reward,
+                SummaryProperties.EPISODE_START.value: s.summary.episode_start,
+            }
+            # self._episode_detail_src = {
+            #     Properties.LAST_Q
+            # }
 
-        if not self._has_plot:
-            # create plots when the data arrives for the first time
-            self._episode_summary_plot.line(x=SummaryProperties.EPISODE_START.name,
-                                            y=SummaryProperties.AVG_Q.name,
-                                            source=self._episode_summary_src)
-            band = Band(base=SummaryProperties.EPISODE_START.name,
-                        lower=SummaryProperties.MIN_Q.name,
-                        upper=SummaryProperties.MAX_Q.name,
-                        level='underlay', fill_alpha=1.0, line_width=1, line_color='black')
-            self._has_plot = True
-            #self._averaged_agent_plot.line
+            if not self._has_plot:
+                # create plots when the data arrives for the first time
+                self._episode_summary_avg_q_line = self._episode_summary_plot.line(
+                    x=SummaryProperties.EPISODE_START.value,
+                    y=SummaryProperties.AVG_Q.value,
+                    source=self._episode_summary_src
+                )
+                band = Band(base=SummaryProperties.EPISODE_START.value,
+                            lower=SummaryProperties.MIN_Q.value,
+                            upper=SummaryProperties.MAX_Q.value,
+                            source=self._episode_summary_src,
+                            level='underlay', fill_alpha=1.0, line_width=1, line_color='gray')
+                self._episode_summary_plot.add_layout(band)
+                self._has_plot = True
+
+        except Exception as e:
+            raise
 

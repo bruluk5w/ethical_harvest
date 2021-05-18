@@ -42,7 +42,7 @@ def set_config(**kwargs):
 
 def save_cfg(filename='config.json'):
     path = os.path.join(get_storage(), filename)
-    with __cfg_lock, open(path, 'w') as f:
+    with __cfg_lock, open(path, 'w', encoding='utf-8') as f:
         json.dump(__cfg._asdict(), f)
 
     print('Saved config at \"{}\"'.format(path))
@@ -51,7 +51,7 @@ def save_cfg(filename='config.json'):
 def load_cfg(filename='config.json'):
     global __cfg
     path = os.path.join(get_storage(), filename)
-    with __cfg_lock, open(path, 'r') as f:
+    with __cfg_lock, open(path, 'r', encoding='utf-8') as f:
         __cfg = Config(**json.load(f))
 
     print('Loaded config from \"{}\"'.format(path))
@@ -69,7 +69,7 @@ __DEFAULT_MINI_BATCH_SIZE = 32
 __DEFAULT_DISCOUNT_FACTOR = 0.95
 __DEFAULT_REPLAY_BUFFER_LENGTH = 10000  # 100000
 __DEFAULT_REPLAY_BUFFER_MIN_LENGTH_FOR_USE = 100  # 10000
-__DEFAULT_EXPLORATION_ANNEALING = 1 / 100000  # 100000
+__DEFAULT_EXPLORATION_ANNEALING = 1 / 100  # 100000
 __DEFAULT_EXPLORE_PROBABILITY_MIN = 0.05
 __DEFAULT_NUM_TORTURE_FRAMES = 20
 # only start effective annealing when we begin using the replay buffer

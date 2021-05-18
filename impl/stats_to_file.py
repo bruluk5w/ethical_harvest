@@ -21,7 +21,7 @@ class QStatsDumper:
 
     def __init__(self, file_path=None):
         self._file_path = file_path
-        self._file = None if self._file_path is None else open(self._file_path, 'w')
+        self._file = None if self._file_path is None else open(self._file_path, 'w', encoding='utf-8')
         self.frames = 0
 
     def __del__(self):
@@ -62,14 +62,14 @@ class QStatsDumper:
 
 class QStatsReader(Thread):
 
-    def __init__(self, file_path=None, callback=None, update_per_episode=True):
+    def __init__(self, file_path=None, callback=None, ):
         super().__init__()
         self._file_path = file_path
         self._callback = callback
-        self._update_per_episode = update_per_episode
-        self._file = None if self._file_path is None else open(self._file_path, 'r')
+        self._file = None if self._file_path is None else open(self._file_path, 'r', encoding='utf-8')
         self._stopping = False
-        self._stats = Stats([], Summary([], [], [], []), [])
+        self._reached_end = False
+        self._stats = Stats([], Summary([], [], [], [], []), [])
 
         self._num_frames = 0
 
@@ -77,7 +77,8 @@ class QStatsReader(Thread):
             self.start()
 
     def __del__(self):
-        self.stop()
+        if self._initialized:
+            self.stop()
 
     def stop(self):
         if self.is_alive():
@@ -96,18 +97,32 @@ class QStatsReader(Thread):
         with condition:
             while not self._stopping:
                 self._ingest_data()
-                condition.wait()
+                if self._reached_end:
+                    condition.wait()
 
     def _ingest_data(self):
         if self._file:
-            for line in self._file:
-                if line.startswith('Episode End: '):
-                    self._read_episode_end(line[13:])
+            if self._reached_end:
+                for line in self._file.readlines():
+                    self._handle_line(line)
+            else:
+                for line in self._file.readlines(1024):
+                    self._handle_line(line)
+
+                line = self._file.readline()
+                if line == '':
+                    self._reached_end = True
                 else:
-                    self._read_episode_frame(line)
+                    self._handle_line(line)
+
+    def _handle_line(self, line):
+        if line.startswith('Episode End: '):
+            self._read_episode_end(line[13:])
+        else:
+            self._read_episode_frame(line)
 
     def _read_episode_frame(self, line):
-        agent_idx, last_q, last_reward, last_explore_probability = tuple(line.split(','))
+        agent_idx, last_q, last_reward, last_explore_probability = tuple(line.rstrip('\n').split(','))
         agent_idx = int(agent_idx)
         last_q = float('nan') if last_q == 'None' else float(last_q)
         last_reward = float('nan') if last_reward == 'None' else float(last_reward)
@@ -117,7 +132,7 @@ class QStatsReader(Thread):
             self._stats.agent_series.extend(AgentSeries(last_q=[float('nan')] * self._num_frames,
                                                         last_reward=[float('nan')] * self._num_frames,
                                                         last_explore_probability=[float('nan')] * self._num_frames,
-                                                        summary=Summary([], [], [], []))
+                                                        summary=Summary([], [], [], [], []))
                                             for _ in range(agent_idx - len(self._stats.agent_series) + 1))
 
         series = self._stats.agent_series[agent_idx]
@@ -127,11 +142,10 @@ class QStatsReader(Thread):
 
         self._num_frames += 1
 
-        if self._callback is not None and not self._update_per_episode:
-            self._callback(self._stats)
-
     def _read_episode_end(self, line):
-        episode_idx, episode_num_frames = tuple(line.split(','))
+        episode_idx, episode_num_frames = tuple(line.rstrip('\n').split(','))
+        episode_idx = int(episode_idx)
+        episode_num_frames = int(episode_num_frames)
         self._stats.episode_ends.append(episode_num_frames)
         if self._callback is not None:
             self._callback(self._stats)
