@@ -78,7 +78,8 @@ class StatsPanel:
                 self._episode_summary_avg_q_line = self._episode_summary_plot.line(
                     x=SummaryProperties.EPISODE_START.value,
                     y=SummaryProperties.AVG_Q.value,
-                    source=self._episode_summary_src
+                    color='red',
+                    source=self._episode_summary_src,
                 )
                 band = Band(base=SummaryProperties.EPISODE_START.value,
                             lower=SummaryProperties.MIN_Q.value,
@@ -86,6 +87,13 @@ class StatsPanel:
                             source=self._episode_summary_src,
                             level='underlay', fill_alpha=1.0, line_width=1, line_color='gray')
                 self._episode_summary_plot.add_layout(band)
+                self._episode_summary_plot.line(
+                    x=SummaryProperties.EPISODE_START.value,
+                    y=SummaryProperties.SUM_REWARD.value,
+                    source=self._episode_summary_src,
+                    line_width=1,
+                    color='blue',
+                )
                 self._has_plot = True
 
         except Exception as e:

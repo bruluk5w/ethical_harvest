@@ -48,9 +48,6 @@ _default_values = {
 }
 
 
-#df[''] = df[''].rolling(2, win_type=None).mean()
-
-
 def build_summary(stats: Stats):
     max_frames = stats.episode_ends[-1] if len(stats.episode_ends) > 0 else 0
     # make all series the same length

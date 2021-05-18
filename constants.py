@@ -4,16 +4,16 @@ __match_nr = re.compile(r'\d+', re.ASCII)
 
 # Environment logic altering!
 TIMEOUT_FRAMES = 25
-TOO_MANY_APPLES = 5
+TOO_MANY_APPLES = 10
 AGENTS_CAN_GET_SICK = False
 AGENTS_HAVE_DIFFERENT_EFFICIENCY = True
 EFFICIENCY = 1  # To be altered for each agent
 SUSTAINABILITY_MATTERS = True  # If False, apples ALWAYS regenerate
-REGENERATION_PROBABILITY = 0.05  # Only matters if SUSTAINABILITY does not matter
-respawn_probabilities = [0.01, 0.05, 0.1]
+REGENERATION_PROBABILITY = 0.02  # Only matters if SUSTAINABILITY does not matter
+RESPAWN_PROBABILITIES = [0.01, 0.02, 0.04]
 
 # Positive rewards
-DONATION_REWARD = 0.5
+DONATION_REWARD = -0.5
 TOOK_DONATION_REWARD = 0.5
 APPLE_GATHERING_REWARD = 1.0
 DID_NOTHING_BECAUSE_MANY_APPLES_REWARD = 0.1  # related with sustainability probably

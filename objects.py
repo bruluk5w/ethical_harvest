@@ -268,9 +268,9 @@ class AppleDrape(pythings.Drape):
                                     self.numPadPixels + 1:-self.numPadPixels - 1] * 1, kernel, mode='constant')
         probs = np.zeros(num_local_apples.shape)
 
-        probs[(num_local_apples > 0) & (num_local_apples <= 2)] = respawn_probabilities[0]
-        probs[(num_local_apples > 2) & (num_local_apples <= 4)] = respawn_probabilities[1]
-        probs[(num_local_apples > 4)] = respawn_probabilities[2]
+        probs[(num_local_apples > 0) & (num_local_apples <= 2)] = RESPAWN_PROBABILITIES[0]
+        probs[(num_local_apples > 2) & (num_local_apples <= 4)] = RESPAWN_PROBABILITIES[1]
+        probs[(num_local_apples > 4)] = RESPAWN_PROBABILITIES[2]
 
         ags = [things[c] for c in self.agentChars]
         num_agent = 0
