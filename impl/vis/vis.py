@@ -12,7 +12,7 @@ from bokeh.server.server import Server
 
 from constants import get_model_name_params
 from impl.config import get_experiment_names, get_storage, cfg, load_cfg, set_config
-from impl.stats_to_file import QStatsDumper
+from impl.stats_to_file import StatsWriter
 from impl.vis.stats_panel import StatsPanel
 
 
@@ -90,7 +90,7 @@ class VisApp:
         if agent_indices != list(range(len(agent_indices))) or len(agent_indices) != cfg().NUM_AGENTS:
             print("Saved models for episode {} missing. Skipping frame.".format(episode_idx))
             return
-        acc = QStatsDumper()
+        acc = StatsWriter()
         game_loop(make_env(), episodes=episode_idx + 1, train=False, episode_callback=acc, start_episode=episode_idx, verbose=False)
 
         self._q_series['episode'].append(episode_idx)

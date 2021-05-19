@@ -6,9 +6,10 @@ import gym
 import numpy as np
 from gym.envs.registration import register
 
+from envs import CommonsGame
 from impl.agent import Agent
 from impl.config import cfg, save_cfg
-from impl.stats_to_file import QStatsDumper, get_trace_file_path, QStatsReader
+from impl.stats_to_file import StatsWriter, get_trace_file_path, QStatsReader
 
 register(
     id='CommonsGame-v0',
@@ -16,11 +17,21 @@ register(
 )
 
 
-RENDER_ENV = False
-SERVE_VISUALIZATION = True
+RENDER_ENV = True
+MONITOR_AGENTS_INPUT = [0, 1]
+SERVE_VISUALIZATION = False
+
+if MONITOR_AGENTS_INPUT:
+    import cv2
+
+
+_AGENT_INPUT_MONITORS = []
 
 
 def translate_state(state):
+    if CommonsGame.SHOOT in cfg().REMOVED_ACTIONS:
+        state[state == 0.2] = 0
+
     return state
 
 
@@ -76,6 +87,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
         for timestep in range(timesteps):
             if verbose:
                 print("--Episode", episode, ", Time step", timestep, "--")
+
             actions = [None] * len(agents)
 
             futures_to_agent = {_threadPool.submit(agent.step, last_reward, new_state, training=train): agent
@@ -86,15 +98,22 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
                 action_idx = future.result()
                 actions[agent.agent_idx] = action_space[action_idx] if action_idx is not None else None
 
-            n_observations, n_rewards, n_done, n_info = environment.step(actions)
+            observations, n_rewards, n_done, n_info = environment.step(actions)
             last_rewards = n_rewards  # rewards for the last action
-            new_states = [translate_state(observation) for observation in n_observations]
+            observations = [translate_state(observation) for observation in observations]
+
+            for monitor_idx, (agent_idx, observation) in enumerate((idx, obs) for idx, obs in enumerate(observations)
+                                                                   if idx in MONITOR_AGENTS_INPUT):
+                big_observation = cv2.resize(observation.astype(np.float32), (500, 500),
+                                             interpolation=cv2.INTER_NEAREST)
+                cv2.imshow('Agent {}'.format(agent_idx), cv2.cvtColor(big_observation, cv2.COLOR_BGR2RGB))
+                cv2.waitKey(1)
 
             if RENDER_ENV:
                 environment.render()
 
             if frame_callback:
-                frame_callback(agents, episode)
+                frame_callback(agents, environment.get_agents(), environment.get_apple_drape(), episode)
 
             if all(n_done):
                 n_torture_frames += 1
@@ -127,7 +146,7 @@ if __name__ == '__main__':
         from impl.vis import vis
         vis.serve_visualization()
 
-    dumper = QStatsDumper(get_trace_file_path())
+    dumper = StatsWriter(get_trace_file_path())
     reader = QStatsReader(get_trace_file_path(),)
 
     @atexit.register

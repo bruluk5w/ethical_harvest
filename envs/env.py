@@ -1,7 +1,7 @@
 import random
 
+import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import gym
 from gym import spaces
 from pycolab import ascii_art
@@ -107,21 +107,20 @@ class CommonsGame(gym.Env):
         # Render the environment to the screen
         board = self.obToImage(self.state)['RGB'].transpose([1, 2, 0])
         board = board[self.numPadPixels:self.numPadPixels + self.mapHeight + 2,
-                      self.numPadPixels:self.numPadPixels + self.mapWidth + 2, :]
-        plt.figure(1)
-        plt.imshow(board)
-        plt.axis("off")
+                self.numPadPixels:self.numPadPixels + self.mapWidth + 2, :]
 
+        board = cv2.resize(board, (500, 500), interpolation=cv2.INTER_NEAREST)
         ags = [self._game.things[c] for c in self.agentChars]
         plot_text = ""
         for i, agent in enumerate(ags):
             plot_text += "Agent " + str(i) + ": " + str(agent.has_apples) + ", "
         plot_text += "Common: " + str(self._game.things['@'].common_pool)
-        plt.title(plot_text)
-        plt.show(block=False)
-        # plt.show()
-        # plt.pause(.05)
-        plt.clf()
+        cv2.putText(board, plot_text, (40, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=0.5, color=(255, 255, 0), thickness=2)
+
+        cv2.imshow('Environment', cv2.cvtColor(board, cv2.COLOR_BGR2RGB))
+        cv2.waitKey(1)
 
     def get_observation(self):
         done = not (np.logical_or.reduce(self.state.layers['@'][5:, :], axis=None))
@@ -178,3 +177,6 @@ class CommonsGame(gym.Env):
 
     def get_agents(self):
         return [self._game.things[c] for c in self.agentChars]
+
+    def get_apple_drape(self):
+        return self._game.things['@']

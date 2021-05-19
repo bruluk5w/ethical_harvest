@@ -2,13 +2,15 @@ import typing
 from enum import Enum
 from typing import NamedTuple, List, Union
 import numpy as np
-import math
 
 
 class Properties(Enum):
     LAST_Q = 'last_q'
     LAST_REWARD = 'last_reward'
     LAST_EXPLORE_PROBABILITY = 'last_explore_probability'
+    NUM_OWNED_APPLES = 'num_owned_apples'
+    NUM_DONATED_APPLES = 'num_donated_apples'
+    NUM_TAKEN_DONATIONS = 'num_taken_donations'
 
 
 class SummaryProperties(Enum):
@@ -17,6 +19,10 @@ class SummaryProperties(Enum):
     MAX_Q = 'max_q'
     AVG_Q = 'avg_q'
     SUM_REWARD = 'sum_reward'
+    MIN_OWNED_APPLES = 'min_owned_apples'
+    MAX_OWNED_APPLES = 'max_owned_apples'
+    AVG_OWNED_APPLES = 'avg_owned_apples'
+    TOTAL_DONATED_APPLES = 'total_donated_apples'
     EPISODE_START = 'episode_start'
 
 
@@ -25,6 +31,10 @@ Summary = NamedTuple('Summary', [
     ('min_q', Union[List[float], np.ndarray]),
     ('avg_q', Union[List[float], np.ndarray]),
     ('sum_reward', Union[List[float], np.ndarray]),
+    ('min_owned_apples', List[int]),
+    ('max_owned_apples', List[int]),
+    ('avg_owned_apples', List[int]),
+    ('total_donated_apples', List[int]),
     ('episode_start', Union[List[int], np.ndarray]),
 ])
 
@@ -32,12 +42,17 @@ AgentSeries = NamedTuple('AgentSeries', [
     ('last_q', List[Union[float, None]]),
     ('last_reward', List[Union[float, None]]),
     ('last_explore_probability', List[Union[float, None]]),
+    ('num_owned_apples', List[int]),
+    ('num_donated_apples', List[int]),
+    ('num_taken_donations', List[int]),
     ('summary', Union[Summary, None]),
 ])
 
 
 Stats = NamedTuple('Stats', [
     ('agent_series', List[AgentSeries]),
+    ('num_common_pool', List[int]),
+    ('num_free_apples', List[int]),
     ('summary', Union[Summary, None]),
     ('episode_ends', List[int]),
 ])

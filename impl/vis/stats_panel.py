@@ -20,7 +20,7 @@ class StatsPanel:
         self._thread_pool = thread_pool
 
         self._episode_summary_plot = figure(x_axis_label='frames', y_axis_label='value_estimates',
-                                            title="Size of q values")
+                                            title="Q values vs. reward per episode")
         self._episode_summary_avg_q_line = None
 
         self._episode_summary_src = ColumnDataSource()
@@ -80,20 +80,28 @@ class StatsPanel:
                     y=SummaryProperties.AVG_Q.value,
                     color='red',
                     source=self._episode_summary_src,
+                    legend_label='avg q',
                 )
-                band = Band(base=SummaryProperties.EPISODE_START.value,
-                            lower=SummaryProperties.MIN_Q.value,
-                            upper=SummaryProperties.MAX_Q.value,
-                            source=self._episode_summary_src,
-                            level='underlay', fill_alpha=1.0, line_width=1, line_color='gray')
+
+                band = Band(
+                    base=SummaryProperties.EPISODE_START.value,
+                    lower=SummaryProperties.MIN_Q.value,
+                    upper=SummaryProperties.MAX_Q.value,
+                    source=self._episode_summary_src,
+                    level='underlay', fill_alpha=1.0, line_width=1, line_color='gray',
+                )
                 self._episode_summary_plot.add_layout(band)
+
                 self._episode_summary_plot.line(
                     x=SummaryProperties.EPISODE_START.value,
                     y=SummaryProperties.SUM_REWARD.value,
                     source=self._episode_summary_src,
                     line_width=1,
                     color='blue',
+                    legend_label='sum reward',
                 )
+
+                self._episode_summary_plot.legend.location = "top_left"
                 self._has_plot = True
 
         except Exception as e:

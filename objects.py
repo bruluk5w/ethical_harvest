@@ -26,6 +26,7 @@ class PlayerSprite(sprites.MazeWalker):
         self.efficiency = 1
         self.probability_getting_sick = 0
         self.donated_apples = 0
+        self.taken_apples = 0
 
     def set_sickness(self, prob):
         if 0 <= prob <= 100:
@@ -211,42 +212,43 @@ class AppleDrape(pythings.Drape):
 
     def update(self, actions, board, layers, backdrop, things, the_plot):
         rewards = []
-
+        ags = [things[c] for c in self.agentChars]
         agents_map = np.ones(self.curtain.shape, dtype=bool)
-        for i in range(len(self.agentChars)):
-            agent_efficiency = things[self.agentChars[i]].efficiency  # The number of apples it can collect on each turn
-            rew = self.curtain[things[self.agentChars[i]].position[0], things[self.agentChars[i]].position[1]]
+        for ag in ags:
+            agent_efficiency = ag.efficiency  # The number of apples it can collect on each turn
+            rew = self.curtain[ag.position[0], ag.position[1]]
             greedy = False  # A greedy agent takes more apples than what it needs
             not_stupid = False  # A stupid agent does not take more apples when it needs them
             if rew:
-                self.curtain[things[self.agentChars[i]].position[0], things[self.agentChars[i]].position[1]] = False
-                things[self.agentChars[i]].has_apples += agent_efficiency
-                greedy = things[self.agentChars[i]].has_apples > TOO_MANY_APPLES
+                self.curtain[ag.position[0], ag.position[1]] = False
+                ag.has_apples += agent_efficiency
+                greedy = ag.has_apples > TOO_MANY_APPLES
 
-            elif things[self.agentChars[i]].did_nothing:
-                not_stupid = things[self.agentChars[i]].has_apples > TOO_MANY_APPLES
-                things[self.agentChars[i]].did_nothing = False
+            elif ag.did_nothing:
+                not_stupid = ag.has_apples > TOO_MANY_APPLES
+                ag.did_nothing = False
             else:
-                things[self.agentChars[i]].did_nothing = False
+                ag.did_nothing = False
 
-            donation = things[self.agentChars[i]].has_donated
-            took_donation = things[self.agentChars[i]].took_donation
-            shot = things[self.agentChars[i]].has_shot
+            donation = ag.has_donated
+            took_donation = ag.took_donation
+            shot = ag.has_shot
             if donation:
-                things[self.agentChars[i]].has_donated = False
-                things[self.agentChars[i]].has_apples -= 1
-                things[self.agentChars[i]].donated_apples += 1
+                ag.has_donated = False
+                ag.has_apples -= 1
+                ag.donated_apples += 1
                 self.common_pool += 1
             elif took_donation:
-                things[self.agentChars[i]].took_donation = False
+                ag.took_donation = False
                 if self.common_pool > 0:
                     self.common_pool -= 1
-                    things[self.agentChars[i]].has_apples += 1
-                    greedy = things[self.agentChars[i]].has_apples > TOO_MANY_APPLES
+                    ag.has_apples += 1
+                    ag.took_donation += 1
+                    greedy = ag.has_apples > TOO_MANY_APPLES
             elif shot:
-                things[self.agentChars[i]].has_shot = False
+                ag.has_shot = False
 
-            if things[self.agentChars[i]].timeout > 0:
+            if ag.timeout > 0:
                 rewards.append(0)
             else:
                 # The rewards takes into account if an apple has been gathered or if an apple has been donated
@@ -259,7 +261,7 @@ class AppleDrape(pythings.Drape):
                     shot * SHOOTING_PUNISHMENT
                 )
 
-            agents_map[things[self.agentChars[i]].position[0], things[self.agentChars[i]].position[1]] = False
+            agents_map[ag.position[0], ag.position[1]] = False
 
         the_plot.add_reward(rewards)
         # Matrix of local stock of apples
@@ -272,32 +274,31 @@ class AppleDrape(pythings.Drape):
         probs[(num_local_apples > 2) & (num_local_apples <= 4)] = RESPAWN_PROBABILITIES[1]
         probs[(num_local_apples > 4)] = RESPAWN_PROBABILITIES[2]
 
-        ags = [things[c] for c in self.agentChars]
-        num_agent = 0
+        agent_idx = 0
 
         x_agent = self.numPadPixels + 1
         y_agent = self.numPadPixels + 1
 
         for agent in ags:
             if agent.has_apples > 1:
-                self.apples[x_agent, y_agent + 3 * num_agent] = True
-                self.curtain[x_agent, y_agent + 3 * num_agent] = True
+                self.apples[x_agent, y_agent + 3 * agent_idx] = True
+                self.curtain[x_agent, y_agent + 3 * agent_idx] = True
 
-                self.apples[x_agent, y_agent + 1 + 3 * num_agent] = True
-                self.curtain[x_agent, y_agent + 1 + 3 * num_agent] = True
+                self.apples[x_agent, y_agent + 1 + 3 * agent_idx] = True
+                self.curtain[x_agent, y_agent + 1 + 3 * agent_idx] = True
             elif agent.has_apples > 0:
-                self.apples[x_agent, y_agent + 3 * num_agent] = True
-                self.curtain[x_agent, y_agent + 3 * num_agent] = True
+                self.apples[x_agent, y_agent + 3 * agent_idx] = True
+                self.curtain[x_agent, y_agent + 3 * agent_idx] = True
 
-                self.apples[x_agent, y_agent + 1 + 3 * num_agent] = False
-                self.curtain[x_agent, y_agent + 1 + 3 * num_agent] = False
+                self.apples[x_agent, y_agent + 1 + 3 * agent_idx] = False
+                self.curtain[x_agent, y_agent + 1 + 3 * agent_idx] = False
             else:
-                self.apples[x_agent, y_agent + 3 * num_agent] = False
-                self.curtain[x_agent, y_agent + 3 * num_agent] = False
+                self.apples[x_agent, y_agent + 3 * agent_idx] = False
+                self.curtain[x_agent, y_agent + 3 * agent_idx] = False
 
-                self.apples[x_agent, y_agent + 1 + 3 * num_agent] = False
-                self.curtain[x_agent, y_agent + 1 + 3 * num_agent] = False
-            num_agent += 1
+                self.apples[x_agent, y_agent + 1 + 3 * agent_idx] = False
+                self.curtain[x_agent, y_agent + 1 + 3 * agent_idx] = False
+            agent_idx += 1
 
         apple_idxs = np.argwhere(np.logical_and(np.logical_xor(self.apples, self.curtain), agents_map))
 
