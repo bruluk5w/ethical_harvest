@@ -103,7 +103,7 @@ class CommonsGame(gym.Env):
         n_observations, _ = self.get_observation()
         return n_observations
 
-    def render(self, mode='human', close=False):
+    def render(self, mode='human', close=False, frame_idx=-1):
         # Render the environment to the screen
         board = self.obToImage(self.state)['RGB'].transpose([1, 2, 0])
         board = board[self.numPadPixels:self.numPadPixels + self.mapHeight + 2,
@@ -111,7 +111,7 @@ class CommonsGame(gym.Env):
 
         board = cv2.resize(board, (500, 500), interpolation=cv2.INTER_NEAREST)
         ags = [self._game.things[c] for c in self.agentChars]
-        plot_text = ""
+        plot_text = "Frame {}\n".format(frame_idx)
         for i, agent in enumerate(ags):
             plot_text += "Agent " + str(i) + ": " + str(agent.has_apples) + ", "
         plot_text += "Common: " + str(self._game.things['@'].common_pool)
