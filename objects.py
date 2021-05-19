@@ -266,8 +266,10 @@ class AppleDrape(pythings.Drape):
         the_plot.add_reward(rewards)
         # Matrix of local stock of apples
         kernel = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 0, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
-        num_local_apples = convolve(self.curtain[self.numPadPixels + 1:-self.numPadPixels - 1,
-                                    self.numPadPixels + 1:-self.numPadPixels - 1] * 1, kernel, mode='constant')
+        apple_sources = self.curtain[self.numPadPixels + 1:-self.numPadPixels - 1,
+                                     self.numPadPixels + 1:-self.numPadPixels - 1] * 1
+        apple_sources[0] = 0  # delete top bar of inventory apples
+        num_local_apples = convolve(apple_sources, kernel, mode='constant')
         probs = np.zeros(num_local_apples.shape)
 
         probs[(num_local_apples > 0) & (num_local_apples <= 2)] = RESPAWN_PROBABILITIES[0]

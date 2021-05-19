@@ -62,7 +62,7 @@ def cfg():
 
 
 # General config
-__DEFAULT_EXPERIMENT_NAME = 'test_dynamic_target_update'
+__DEFAULT_EXPERIMENT_NAME = 'dynamic_target_update_hard_sustainability'
 # Agent training config
 __DEFAULT_TARGET_NETWORK_UPDATE_FREQUENCY = -1
 __DEFAULT_MINI_BATCH_SIZE = 32
