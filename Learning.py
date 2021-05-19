@@ -111,7 +111,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
                 cv2.waitKey(1)
 
             if RENDER_ENV:
-                environment.render(timestep)
+                environment.render(frame_idx=timestep)
 
             if frame_callback:
                 frame_callback(agents, environment.get_agents(), environment.get_apple_drape(), episode)

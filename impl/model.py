@@ -64,19 +64,12 @@ class Model:
 
     def _create_model(self):
         inputs = layers.Input(shape=self._input_size)
-        x = layers.Conv2D(32, (3, 3), strides=(1, 1),
-                          activation='relu',
-                          # default parameters result in He initialization that work better with relu activation
-                          kernel_initializer=VarianceScaling())(inputs)
-        x = layers.Conv2D(64, (2, 2), strides=(1, 1),
-                          activation='relu',
-                          # default parameters result in He initialization that work better with relu activation
-                          kernel_initializer=VarianceScaling())(x)
+        x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(inputs)
         x = layers.Flatten()(x)
         x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(x)
         outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
         model = CustomKerasModel(inputs, outputs)
-        # model.summary()
+        model.summary()
 
         model.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
                       loss=losses.Huber(),
