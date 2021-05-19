@@ -1,6 +1,7 @@
+import time
 from threading import Thread
 from multiprocessing import Condition
-from collections import defaultdict
+from collections import defaultdict, deque
 from typing import Dict, List
 
 import numpy as np
@@ -81,14 +82,14 @@ class StatsWriter:
 
 class QStatsReader(Thread):
 
-    def __init__(self, file_path=None, callback=None, ):
+    def __init__(self, file_path=None, callback=None):
         super().__init__()
         self._file_path = file_path
         self._callback = callback
         self._file = None if self._file_path is None else open(self._file_path, 'r', encoding='utf-8')
         self._stopping = False
         self._reached_end = False
-        self._stats = Stats([], [], [], Summary([], [], [], [], [], [], [], [], []), [])
+        self._stats = Stats([], deque(), deque(), Summary([], [], [], [], [], [], [], [], []), deque())
 
         self._num_frames = 0
 
@@ -117,7 +118,14 @@ class QStatsReader(Thread):
             while not self._stopping:
                 self._ingest_data()
                 if self._reached_end:
+                    if self._callback is not None:
+                        self._callback(self._stats)
                     condition.wait()
+                else:
+                    if self._callback is not None:
+                        self._callback(self._stats)
+                    # give other thread a chance
+                    time.sleep(0.001)
 
     def _ingest_data(self):
         if self._file:
@@ -125,7 +133,7 @@ class QStatsReader(Thread):
                 for line in self._file.readlines():
                     self._handle_line(line)
             else:
-                for line in self._file.readlines(1024):
+                for line in self._file.readlines(1024*64):
                     self._handle_line(line)
 
                 line = self._file.readline()
@@ -161,12 +169,12 @@ class QStatsReader(Thread):
         num_taken_donations = int(num_taken_donations)
 
         if agent_idx >= len(self._stats.agent_series):
-            self._stats.agent_series.extend(AgentSeries(last_q=[float('nan')] * self._num_frames,
-                                                        last_reward=[float('nan')] * self._num_frames,
-                                                        last_explore_probability=[float('nan')] * self._num_frames,
-                                                        num_owned_apples=[0] * self._num_frames,
-                                                        num_donated_apples=[0] * self._num_frames,
-                                                        num_taken_donations=[0] * self._num_frames,
+            self._stats.agent_series.extend(AgentSeries(last_q=deque([float('nan')] * self._num_frames),
+                                                        last_reward=deque([float('nan')] * self._num_frames),
+                                                        last_explore_probability=deque([float('nan')] * self._num_frames),
+                                                        num_owned_apples=deque([0] * self._num_frames),
+                                                        num_donated_apples=deque([0] * self._num_frames),
+                                                        num_taken_donations=deque([0] * self._num_frames),
                                                         summary=Summary([], [], [], [], [], [], [], [], []))
                                             for _ in range(agent_idx - len(self._stats.agent_series) + 1))
 
@@ -183,7 +191,7 @@ class QStatsReader(Thread):
         episode_idx = int(episode_idx)
         episode_num_frames = int(episode_num_frames)
         self._stats.episode_ends.append(episode_num_frames)
-        if self._callback is not None:
+        if self._callback is not None and self._reached_end:
             self._callback(self._stats)
         # self.max_q = float('-inf')
         # self.min_q = float('+inf')

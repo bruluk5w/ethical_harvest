@@ -1,12 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
 from functools import partial
 from typing import Callable
 
 from bokeh.document import without_document_lock
 from tornado import gen
 
-from impl.stats import build_summary, Stats
+from impl.stats import build_summary, Stats, init_np_copy
 
 
 class DataSink:
@@ -22,7 +21,7 @@ class DataSink:
         self._last_episode_idx = 0
 
     def on_new_data(self, series: Stats):
-        s = deepcopy(series)
+        s = init_np_copy(series)
         self._target_doc.add_next_tick_callback(partial(self._build, s))
 
     @gen.coroutine
