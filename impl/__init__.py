@@ -1,19 +1,27 @@
-from concurrent.futures import ProcessPoolExecutor
+import atexit
+import concurrent.futures
 from multiprocessing import parent_process
 
 
-_PROCESS_POOL = None
+_PROCESS_POOL = None  # type: concurrent.futures.ProcessPoolExecutor
 
 
 def _process_pool_init():
     global _PROCESS_POOL
     if _PROCESS_POOL is None and parent_process() is None:
-        _PROCESS_POOL = ProcessPoolExecutor()
+        _PROCESS_POOL = concurrent.futures.ProcessPoolExecutor()
 
 
 def get_process_pool():
     _process_pool_init()
     return _PROCESS_POOL
+
+
+@atexit.register
+def _cleanup():
+    print("Cleanup")
+    if _PROCESS_POOL is not None:
+        _PROCESS_POOL.shutdown(wait=False)
 
 
 def init_tensorflow():

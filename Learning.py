@@ -17,7 +17,7 @@ register(
 )
 
 
-RENDER_ENV = False
+RENDER_ENV = True
 MONITOR_AGENTS_INPUT = []
 SERVE_VISUALIZATION = True
 
@@ -84,6 +84,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
 
         timestep = None
         n_torture_frames = 0
+        sum_rewards = 0
         for timestep in range(timesteps):
             if verbose:
                 print("--Episode", episode, ", Time step", timestep, "--")
@@ -98,8 +99,8 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
                 action_idx = future.result()
                 actions[agent.agent_idx] = action_space[action_idx] if action_idx is not None else None
 
-            observations, n_rewards, n_done, n_info = environment.step(actions)
-            last_rewards = n_rewards  # rewards for the last action
+            observations, last_rewards, n_done, n_info = environment.step(actions)
+            sum_rewards += sum(last_rewards)  # rewards for the last action
             observations = [translate_state(observation) for observation in observations]
 
             for monitor_idx, (agent_idx, observation) in enumerate((idx, obs) for idx, obs in enumerate(observations)
@@ -121,11 +122,16 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
                     break
 
         episode_lengths.append(timestep)
-        print(episode_lengths)
+        print("{}, {}".format(sum_rewards, episode_lengths))
 
-        if train and not(episode % 2):
-            for agent_idx, agent in enumerate(agents):
-                agent.save_weights(agent_idx)
+        if train:
+            if cfg().TARGET_NETWORK_UPDATE_FREQUENCY <= 0:
+                for agent_idx, agent in enumerate(agents):
+                    agent.update_target_network()
+
+            if not(episode % 2):
+                for agent_idx, agent in enumerate(agents):
+                    agent.save_weights(agent_idx)
 
         if episode_callback is not None:
             episode_callback(agents, episode)
@@ -140,6 +146,11 @@ def make_env():
 
 
 if __name__ == '__main__':
+    from multiprocessing import parent_process
+    if parent_process() is None:
+        from impl import init_tensorflow
+        init_tensorflow()
+
     save_cfg()
 
     if SERVE_VISUALIZATION:
@@ -147,15 +158,10 @@ if __name__ == '__main__':
         vis.serve_visualization()
 
     dumper = StatsWriter(get_trace_file_path())
-    reader = QStatsReader(get_trace_file_path(),)
-
-    @atexit.register
-    def cleanup():
-        reader.stop()
 
     game_loop(
         make_env(),
         episode_callback=dumper.on_episode_end,
         frame_callback=dumper.on_episode_frame,
-        verbose=True
+        verbose=False
     )

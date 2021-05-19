@@ -79,7 +79,7 @@ def init_np_copy(stats: Stats):
         last_q = np.ma.masked_invalid(agent_series.last_q)
         if last_q.shape[0] < max_frames:
             last_q = np.concatenate([last_q, [float('nan') for _ in range(max_frames - len(last_q))]])
-        last_reward = np.ma.masked_invalid(agent_series.last_reward)
+        last_reward = np.array(agent_series.last_reward)
         if last_reward.shape[0] < max_frames:
             last_reward = np.concatenate([last_reward, [float('nan') for _ in range(max_frames - len(last_reward))]])
         last_explore = np.ma.masked_invalid(agent_series.last_explore_probability)
@@ -180,9 +180,9 @@ def build_summary(np_stats: Stats):
     np.divide(summary.max_q, num_not_nan, out=summary.max_q, where=num_not_nan > 0)
     np.divide(summary.min_q, num_not_nan, out=summary.min_q, where=num_not_nan > 0)
     np.divide(summary.avg_q, num_not_nan, out=summary.avg_q, where=num_not_nan > 0)
-    np.divide(summary.sum_reward, num_not_nan, out=summary.sum_reward, where=num_not_nan > 0)
-    num_series = len(np_stats.agent_series)
-    np.divide(summary.min_owned_apples, num_series, out=summary.sum_reward)
+    num_series = float(len(np_stats.agent_series))
+    np.divide(summary.sum_reward, num_series, out=summary.sum_reward)
+    np.divide(summary.min_owned_apples, num_series, out=summary.min_owned_apples)
     np.divide(summary.max_owned_apples, num_series, out=summary.max_owned_apples)
     np.divide(summary.avg_owned_apples, num_series, out=summary.avg_owned_apples)
     np.divide(summary.total_donated_apples, num_series, out=summary.total_donated_apples)
@@ -190,6 +190,5 @@ def build_summary(np_stats: Stats):
     np.nan_to_num(summary.max_q, copy=False, nan=0.0)
     np.nan_to_num(summary.min_q, copy=False, nan=0.0)
     np.nan_to_num(summary.avg_q, copy=False, nan=0.0)
-    np.nan_to_num(summary.sum_reward, copy=False, nan=0.0)
 
     return np_stats

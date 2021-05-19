@@ -6,7 +6,6 @@ import numpy as np
 
 from constants import model_name
 from impl.config import cfg, get_storage, ensure_folder
-
 from impl.replay_buffer import ReplayBuffer, ReplayFrame
 
 
@@ -22,13 +21,8 @@ class Agent:
 
         self._agent_idx = agent_idx
         self._episode_idx = episode_idx
-        from multiprocessing import parent_process
-        if parent_process() is None:
-            from impl import init_tensorflow
-            init_tensorflow()
-            from impl.model import Model
-        else:
-            raise Exception('Cannot use tensorflow in a subprocess!')
+
+        from impl.model import Model
 
         if self._episode_idx >= 0:
             path_online, path_target = self._make_model_path()
@@ -99,8 +93,9 @@ class Agent:
             if len(self._replay_buffer) >= cfg().REPLAY_BUFFER_MIN_LENGTH_FOR_USE:
                 self._train_network()
 
-                if not self._frame % cfg().TARGET_NETWORK_UPDATE_FREQUENCY:
-                    self._update_target_network()
+                update_freq = cfg().TARGET_NETWORK_UPDATE_FREQUENCY
+                if update_freq > 0 and not self._frame % update_freq:
+                    self.update_target_network()
 
         self._last_state = new_state
         self._last_action = action
@@ -140,5 +135,5 @@ class Agent:
 
         self._online_network.train_step(last_states, target_q_values, actions_one_hot)
 
-    def _update_target_network(self):
+    def update_target_network(self):
         self._target_network.copy_variables(self._online_network)

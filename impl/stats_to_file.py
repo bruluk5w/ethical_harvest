@@ -35,7 +35,7 @@ class StatsWriter:
     def on_episode_frame(self, agents, avatars: List[PlayerSprite], apple_drape: AppleDrape, episode_idx):
         for agent, avatar in zip(sorted(agents, key=lambda a: a.agent_idx), avatars):
             used_network = agent.last_online_q_values is not None
-            self._handle_step_agent_data(
+            self._handle_agent_step_data(
                 agent.agent_idx,
                 agent.last_online_q_values.numpy().max() if used_network else None,
                 agent.last_reward,
@@ -45,7 +45,7 @@ class StatsWriter:
                 avatar.taken_apples,
             )
 
-        self._handle_agent_frame_data(
+        self._handle_frame_data(
             apple_drape.common_pool,
             apple_drape.curtain[5:, :].sum(axis=None).item(),
         )
@@ -60,7 +60,7 @@ class StatsWriter:
                 self._file.flush()
                 condition.notify_all()
 
-    def _handle_step_agent_data(self, agent_idx, last_q, last_reward, last_explore_probability,
+    def _handle_agent_step_data(self, agent_idx, last_q, last_reward, last_explore_probability,
                                 num_owned_apples, num_donated_apples, num_taken_donations):
         if self._file:
             condition = _file_conditions[self._file_path]
@@ -68,16 +68,16 @@ class StatsWriter:
                 self._file.write("{},{},{},{},{},{},{}\n".format(
                     agent_idx, last_q, last_reward, last_explore_probability,
                     num_owned_apples, num_donated_apples, num_taken_donations))
-                self._file.flush()
-                condition.notify_all()
+                # self._file.flush()
+                # condition.notify_all()
 
-    def _handle_agent_frame_data(self, num_common_pool, num_free_apples):
+    def _handle_frame_data(self, num_common_pool, num_free_apples):
         if self._file:
             condition = _file_conditions[self._file_path]
             with condition:
                 self._file.write("Frame: {},{}\n".format(num_common_pool, num_free_apples))
-                self._file.flush()
-                condition.notify_all()
+                # self._file.flush()
+                # condition.notify_all()
 
 
 class QStatsReader(Thread):
@@ -118,7 +118,7 @@ class QStatsReader(Thread):
             while not self._stopping:
                 self._ingest_data()
                 if self._reached_end:
-                    if self._callback is not None:
+                    if self._callback is not None and self.has_data:
                         self._callback(self._stats)
                     condition.wait()
                 else:
@@ -126,6 +126,10 @@ class QStatsReader(Thread):
                         self._callback(self._stats)
                     # give other thread a chance
                     time.sleep(0.001)
+
+    @property
+    def has_data(self) -> bool:
+        return len(self._stats.episode_ends) > 0
 
     def _ingest_data(self):
         if self._file:
