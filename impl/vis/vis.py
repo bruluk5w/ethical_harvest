@@ -142,4 +142,4 @@ _STANDALONE = False
 
 if __name__ == '__main__':
     _STANDALONE = True
-    serve_visualization(port=5008)
+    serve_visualization(port=5009)

@@ -1,5 +1,5 @@
 from collections import namedtuple
-from random import sample
+from numpy.random import choice
 from typing import Tuple
 
 import numpy as np
@@ -18,8 +18,8 @@ class ReplayBuffer:
         self._cursor = 0
         self._state_buffer = np.ndarray((length,) + state_size, dtype=state_dtype)
         self._next_state_buffer = np.empty_like(self._state_buffer)
-        self._action_buffer = np.ndarray((length, 1), dtype=action_dtype)
-        self._reward_buffer = np.ndarray((length, 1), dtype=reward_dtype)
+        self._action_buffer = np.ndarray((length,), dtype=action_dtype)
+        self._reward_buffer = np.ndarray((length,), dtype=reward_dtype)
 
     def __len__(self):
         return self._length
@@ -27,7 +27,10 @@ class ReplayBuffer:
     def sample(self, batch_length):
         batch_length = min(self._length, batch_length)
         assert self._length >= min(self._length, batch_length)
-        samples = sample(range(self._length), batch_length)
+        # weight samples by reward, to train more often those with higher reward
+        p = self._reward_buffer[:self._length] + 1
+        p /= p.sum()
+        samples = choice(range(self._length), batch_length, p=p)
         return (self._state_buffer[samples], self._next_state_buffer[samples],
                 self._action_buffer[samples], self._reward_buffer[samples])
 

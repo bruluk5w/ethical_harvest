@@ -115,10 +115,10 @@ class Agent:
             self.last_explore_probability = 0.0
 
         self.last_online_q_values = qvalues = self._online_network(np.expand_dims(new_state, 0))
-        return np.squeeze(qvalues).argmax(),
+        return np.squeeze(qvalues).argmax().item()
 
-    def _random_action(self) -> Tuple[int]:
-        return tuple(int(random.choice(range(size))) for size in self._action_size)
+    def _random_action(self) -> int:
+        return int(random.choice(range(self._action_size[0])))
 
     def _train_network(self):
         last_states, next_states, last_actions, rewards = self._replay_buffer.sample(cfg().MINI_BATCH_SIZE)
