@@ -1,23 +1,19 @@
-from concurrent.futures import ThreadPoolExecutor
 from typing import Union
 
-import numpy as np
 from bokeh.document import Document
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource, Band
 from bokeh.plotting import figure
 
 from impl.config import get_storage_for_experiment
-from impl.stats import Properties, SummaryProperties, Stats
+from impl.stats import SummaryProperties, Stats
 from impl.stats_to_file import QStatsReader, get_trace_file_path
 from impl.vis.data_sink import DataSink
-import math
 
 
 class StatsPanel:
-    def __init__(self, doc: Document, thread_pool: ThreadPoolExecutor):
+    def __init__(self, doc: Document):
         self._doc = doc
-        self._thread_pool = thread_pool
 
         self._episode_summary_plot = figure(x_axis_label='frames', y_axis_label='value_estimates',
                                             title="Q values vs. reward per episode")
@@ -30,7 +26,7 @@ class StatsPanel:
 
         self._has_plot = False
 
-        self._data_sink = DataSink(self._doc, self._thread_pool, self.update_data)
+        self._data_sink = DataSink(self._doc, self.update_data)
 
 
         # self._value_estimates_plot.quad(top='q_max', bottom='q_min',

@@ -6,7 +6,7 @@ import numpy as np
 
 from constants import model_name
 from impl.config import cfg, get_storage, ensure_folder
-from impl.model import Model
+
 from impl.replay_buffer import ReplayBuffer, ReplayFrame
 
 
@@ -22,6 +22,13 @@ class Agent:
 
         self._agent_idx = agent_idx
         self._episode_idx = episode_idx
+        from multiprocessing import parent_process
+        if parent_process() is None:
+            from impl import init_tensorflow
+            init_tensorflow()
+            from impl.model import Model
+        else:
+            raise Exception('Cannot use tensorflow in a subprocess!')
 
         if self._episode_idx >= 0:
             path_online, path_target = self._make_model_path()

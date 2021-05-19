@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from impl import get_process_pool
 from functools import partial
 from typing import Callable
 
@@ -11,12 +11,10 @@ from impl.stats import build_summary, Stats, init_np_copy
 class DataSink:
     def __init__(
             self, doc,
-            thread_pool: ThreadPoolExecutor,
             update_callback: Callable[[Stats], None]
     ):
         self._target_doc = doc
         self._update_callback = update_callback
-        self._thread_pool = thread_pool
         self._last_frame_idx = 0
         self._last_episode_idx = 0
 
@@ -27,5 +25,5 @@ class DataSink:
     @gen.coroutine
     @without_document_lock
     def _build(self, s: Stats):
-        s = yield self._thread_pool.submit(build_summary, s)
+        s = yield get_process_pool().submit(build_summary, s)
         self._target_doc.add_next_tick_callback(partial(self._update_callback, s))

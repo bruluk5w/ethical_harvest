@@ -133,7 +133,7 @@ class QStatsReader(Thread):
                 for line in self._file.readlines():
                     self._handle_line(line)
             else:
-                for line in self._file.readlines(1024*64):
+                for line in self._file.readlines(1024*1024):
                     self._handle_line(line)
 
                 line = self._file.readline()

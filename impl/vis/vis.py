@@ -1,5 +1,4 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from itertools import groupby, islice
 from threading import Thread, Lock
@@ -31,8 +30,7 @@ class VisApp:
             self._experiment_dropdown = Dropdown(label=self._name)
 
         self._storage = None  # folder for all the data of the experiment
-        self._thread_pool = ThreadPoolExecutor()
-        self._stats_panel = StatsPanel(doc, self._thread_pool)
+        self._stats_panel = StatsPanel(doc)
 
         doc.add_root(column(self._experiment_dropdown, self._stats_panel.get_layout()))
 
