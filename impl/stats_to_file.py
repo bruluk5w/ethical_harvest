@@ -1,15 +1,13 @@
+import os.path
 import time
-from threading import Thread
-from multiprocessing import Condition
 from collections import defaultdict, deque
+from multiprocessing import Condition
+from threading import Thread
 from typing import Dict, List
 
-import numpy as np
-
-from impl.config import get_storage
-import os.path
-from impl.stats import Stats, AgentSeries, Summary
 from envs.env import PlayerSprite, AppleDrape
+from impl.config import get_storage
+from impl.stats import Stats, AgentSeries, Summary
 
 _file_conditions = defaultdict((lambda: Condition()))  # type: Dict[str, Condition]
 
@@ -45,6 +43,9 @@ class StatsWriter:
                 avatar.taken_apples,
             )
 
+            avatar.donated_apples = 0
+            avatar.taken_apples = 0
+
         self._handle_frame_data(
             apple_drape.common_pool,
             apple_drape.curtain[5:, :].sum(axis=None).item(),
@@ -76,8 +77,6 @@ class StatsWriter:
             condition = _file_conditions[self._file_path]
             with condition:
                 self._file.write("Frame: {},{}\n".format(num_common_pool, num_free_apples))
-                # self._file.flush()
-                # condition.notify_all()
 
 
 class QStatsReader(Thread):

@@ -1,6 +1,6 @@
-import typing
 from enum import Enum
 from typing import NamedTuple, List, Union
+
 import numpy as np
 
 
@@ -19,7 +19,7 @@ class SummaryProperties(Enum):
     MAX_Q = 'max_q'
     AVG_Q = 'avg_q'
     SUM_REWARD = 'sum_reward'
-    MIN_OWNED_APPLES = 'min_owned_apples'
+    END_OWNED_APPLES = 'end_owned_apples'
     MAX_OWNED_APPLES = 'max_owned_apples'
     AVG_OWNED_APPLES = 'avg_owned_apples'
     TOTAL_DONATED_APPLES = 'total_donated_apples'
@@ -31,7 +31,7 @@ Summary = NamedTuple('Summary', [
     ('min_q', Union[List[float], np.ndarray]),
     ('avg_q', Union[List[float], np.ndarray]),
     ('sum_reward', Union[List[float], np.ndarray]),
-    ('min_owned_apples',  Union[List[int], np.ndarray]),
+    ('end_owned_apples',  Union[List[int], np.ndarray]),
     ('max_owned_apples',  Union[List[int], np.ndarray]),
     ('avg_owned_apples',  Union[List[int], np.ndarray]),
     ('total_donated_apples', Union[List[int], np.ndarray]),
@@ -76,13 +76,13 @@ def init_np_copy(stats: Stats):
         # convert to numpy and make arrays the same length
         max_frames = stats.episode_ends[-1] if len(np_stats.episode_ends) > 0 else 0
 
-        last_q = np.ma.masked_invalid(agent_series.last_q)
+        last_q = np.ma.masked_invalid(np.array(agent_series.last_q, dtype=np.float32), copy=False)
         if last_q.shape[0] < max_frames:
             last_q = np.concatenate([last_q, [float('nan') for _ in range(max_frames - len(last_q))]])
-        last_reward = np.array(agent_series.last_reward)
+        last_reward = np.array(agent_series.last_reward, dtype=np.float32)
         if last_reward.shape[0] < max_frames:
             last_reward = np.concatenate([last_reward, [float('nan') for _ in range(max_frames - len(last_reward))]])
-        last_explore = np.ma.masked_invalid(agent_series.last_explore_probability)
+        last_explore = np.ma.masked_invalid(np.array(agent_series.last_explore_probability, dtype=np.float32), copy=False)
         if last_explore.shape[0] < max_frames:
             last_explore = np.concatenate([last_explore, [float('nan') for _ in range(max_frames - len(last_explore))]])
         num_owned_apples = np.array(agent_series.num_owned_apples)
@@ -113,7 +113,7 @@ def init_np_copy(stats: Stats):
                 max_q=np.empty((num_episodes,), dtype=last_q.dtype),
                 min_q=np.empty((num_episodes,), dtype=last_q.dtype),
                 avg_q=np.empty((num_episodes,), dtype=np.float32),
-                min_owned_apples=np.empty((num_episodes,), dtype=num_owned_apples.dtype),
+                end_owned_apples=np.empty((num_episodes,), dtype=num_owned_apples.dtype),
                 max_owned_apples=np.empty((num_episodes,), dtype=num_owned_apples.dtype),
                 avg_owned_apples=np.empty((num_episodes,), dtype=np.float32),
                 total_donated_apples=np.empty((num_episodes,), dtype=num_donated_apples.dtype),
@@ -143,10 +143,13 @@ def build_summary(np_stats: Stats):
             summary.min_q[episode_idx] = episode_last_q.min()
             summary.avg_q[episode_idx] = episode_last_q.mean()
             summary.sum_reward[episode_idx] = episode_last_reward.sum()
-            summary.min_owned_apples[episode_idx] = num_owned_apples.min()  # should actually always be zero
+            summary.end_owned_apples[episode_idx] = num_owned_apples[-1]  # should actually always be zero
             summary.max_owned_apples[episode_idx] = num_owned_apples.max()
             summary.avg_owned_apples[episode_idx] = num_owned_apples.mean()
-            summary.total_donated_apples[episode_idx] = num_donated_apples.sum() - num_taken_donations.sum()
+            if True:  # deactivate this for traces that had the error of summing the donations instead of writing absolute values
+                summary.total_donated_apples[episode_idx] = num_donated_apples.sum() - num_taken_donations.sum()
+            else:
+                summary.total_donated_apples[episode_idx] = num_donated_apples[-1] - num_taken_donations[-1]
             summary.episode_start[episode_idx] = episode_start
             episode_start = episode_end
 
@@ -156,7 +159,7 @@ def build_summary(np_stats: Stats):
             min_q=np_stats.agent_series[0].summary.min_q.copy(),
             avg_q=np_stats.agent_series[0].summary.avg_q.copy(),
             sum_reward=np_stats.agent_series[0].summary.sum_reward.copy(),
-            min_owned_apples=np_stats.agent_series[0].summary.min_owned_apples.astype(np.float32),
+            end_owned_apples=np_stats.agent_series[0].summary.end_owned_apples.astype(np.float32),
             max_owned_apples=np_stats.agent_series[0].summary.max_owned_apples.astype(np.float32),
             avg_owned_apples=np_stats.agent_series[0].summary.avg_owned_apples.astype(np.float32),
             total_donated_apples=np_stats.agent_series[0].summary.total_donated_apples.astype(np.float32),
@@ -172,7 +175,7 @@ def build_summary(np_stats: Stats):
         np.add(summary.min_q, agent_series.summary.min_q, out=summary.min_q)
         np.add(summary.avg_q, agent_series.summary.avg_q, out=summary.avg_q)
         np.add(summary.sum_reward, agent_series.summary.sum_reward, out=summary.sum_reward)
-        np.add(summary.min_owned_apples, agent_series.summary.min_owned_apples, out=summary.min_owned_apples)
+        np.add(summary.end_owned_apples, agent_series.summary.end_owned_apples, out=summary.end_owned_apples)
         np.add(summary.max_owned_apples, agent_series.summary.max_owned_apples, out=summary.max_owned_apples)
         np.add(summary.avg_owned_apples, agent_series.summary.avg_owned_apples, out=summary.avg_owned_apples)
         np.add(summary.total_donated_apples, agent_series.summary.total_donated_apples, out=summary.total_donated_apples)
@@ -182,10 +185,8 @@ def build_summary(np_stats: Stats):
     np.divide(summary.avg_q, num_not_nan, out=summary.avg_q, where=num_not_nan > 0)
     num_series = float(len(np_stats.agent_series))
     np.divide(summary.sum_reward, num_series, out=summary.sum_reward)
-    np.divide(summary.min_owned_apples, num_series, out=summary.min_owned_apples)
     np.divide(summary.max_owned_apples, num_series, out=summary.max_owned_apples)
     np.divide(summary.avg_owned_apples, num_series, out=summary.avg_owned_apples)
-    np.divide(summary.total_donated_apples, num_series, out=summary.total_donated_apples)
 
     np.nan_to_num(summary.max_q, copy=False, nan=0.0)
     np.nan_to_num(summary.min_q, copy=False, nan=0.0)

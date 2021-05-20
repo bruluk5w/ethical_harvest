@@ -233,17 +233,19 @@ class AppleDrape(pythings.Drape):
             donation = ag.has_donated
             took_donation = ag.took_donation
             shot = ag.has_shot
+            ag.donated_apples = 0
+            ag.took_donation = 0
             if donation:
                 ag.has_donated = False
                 ag.has_apples -= 1
-                ag.donated_apples += 1
+                ag.donated_apples = 1
                 self.common_pool += 1
             elif took_donation:
                 ag.took_donation = False
                 if self.common_pool > 0:
                     self.common_pool -= 1
                     ag.has_apples += 1
-                    ag.took_donation += 1
+                    ag.took_donation = 1
                     greedy = ag.has_apples > TOO_MANY_APPLES
             elif shot:
                 ag.has_shot = False

@@ -1,4 +1,3 @@
-import atexit
 import concurrent.futures
 from typing import List, Union
 
@@ -9,7 +8,7 @@ from gym.envs.registration import register
 from envs import CommonsGame
 from impl.agent import Agent
 from impl.config import cfg, save_cfg
-from impl.stats_to_file import StatsWriter, get_trace_file_path, QStatsReader
+from impl.stats_to_file import StatsWriter, get_trace_file_path
 
 register(
     id='CommonsGame-v0',
@@ -17,9 +16,9 @@ register(
 )
 
 
-RENDER_ENV = True
+RENDER_ENV = False
 MONITOR_AGENTS_INPUT = []
-SERVE_VISUALIZATION = True
+SERVE_VISUALIZATION = False
 
 if MONITOR_AGENTS_INPUT:
     import cv2

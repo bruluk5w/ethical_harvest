@@ -1,41 +1,43 @@
 from functools import partial
 from itertools import cycle, chain
+from textwrap import wrap
 from typing import Union, Callable
 
-from scipy.ndimage import convolve
 import numpy as np
 from bokeh import palettes
-from bokeh.colors import named as color, Color, RGB
+from bokeh.colors import named as color, RGB
 from bokeh.core.enums import ButtonType
 from bokeh.document import Document
 from bokeh.layouts import column
 from bokeh.models import ColumnDataSource, Band, CustomJS, Toggle, Slider
 from bokeh.plotting import figure
+from scipy.ndimage import convolve
 
 from impl.config import get_storage_for_experiment
-from impl.stats import SummaryProperties, Stats
+from impl.stats import SummaryProperties, Stats, Properties
 from impl.stats_to_file import QStatsReader, get_trace_file_path
 from impl.vis.data_sink import DataSink
-from textwrap import wrap
 
 
 class StatsPanel:
     def __init__(self, doc: Document):
         self._doc = doc
         self._stats = None
-        self._smooth_size = Slider(start=2, end=50, value=3, step=1, title="Window Size")
-        self._toggle_smooth_btn = Toggle(label="Smoothing Off", active=False)
+        self._smooth_size = Slider(start=2, end=50, value=3, step=1, title='Window Size')
+        self._toggle_smooth_btn = Toggle(label='Smoothing Off', active=False)
         self._toggle_smooth_btn.on_click(self._toggle_smooth)
         self._smooth_size.on_change('value_throttled', self._set_smoothing_window_size)
         self._toggle_smooth()
 
         self._all_plots = (
-            figure(x_axis_label='frames', y_axis_label='q estimate', title="Q estimates per episode", sizing_mode="scale_width"),
-            figure(x_axis_label='frames', y_axis_label='reward', title="Summed rewards per episode", sizing_mode="scale_width"),
-            figure(x_axis_label='frames', y_axis_label='num_apples', title="Apples per episode", sizing_mode="scale_width"),
+            figure(x_axis_label='frames', y_axis_label='p', title='explore_probability', height=200, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='q estimate', title='Q estimates per episode (\"all\" is mean)', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='reward', title='Summed rewards per episode (\"all\" is mean)', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='num_apples', title='Apples per episode (\"all\" is sum)', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='num_apples', title='Donations per episode (\"all\" is sum)', height=300, sizing_mode='scale_width'),
         )
 
-        self._q_plot, self._reward_plot, self._apple_plot = self._all_plots
+        self._p_explore_plot, self._q_plot, self._reward_plot, self._apple_plot, self._donations_plot = self._all_plots
         # link x range
         last_plot = self._all_plots[0]
         for plot in self._all_plots[1:]:
@@ -89,9 +91,12 @@ class StatsPanel:
                 SummaryProperties.AVG_Q.value: t(s.summary.avg_q),
                 SummaryProperties.SUM_REWARD.value: t(s.summary.sum_reward),
                 SummaryProperties.MAX_OWNED_APPLES.value: t(s.summary.max_owned_apples),
-                SummaryProperties.MIN_OWNED_APPLES.value: t(s.summary.min_owned_apples),
+                SummaryProperties.END_OWNED_APPLES.value: t(s.summary.end_owned_apples),
                 SummaryProperties.AVG_OWNED_APPLES.value: t(s.summary.avg_owned_apples),
+                SummaryProperties.TOTAL_DONATED_APPLES.value: t(s.summary.total_donated_apples),
                 SummaryProperties.EPISODE_START.value: s.summary.episode_start,
+                Properties.LAST_EXPLORE_PROBABILITY.value: s.agent_series[0].last_explore_probability[s.summary.episode_start],
+                'all_apples': t(s.summary.end_owned_apples + s.summary.total_donated_apples),
             }
 
             agent_key = lambda idx, property: 'agent_{}_{}'.format(idx, property.value)
@@ -102,7 +107,7 @@ class StatsPanel:
                 src[agent_key(idx, SummaryProperties.AVG_Q)] = t(series.summary.avg_q)
                 src[agent_key(idx, SummaryProperties.SUM_REWARD)] = t(series.summary.sum_reward)
                 src[agent_key(idx, SummaryProperties.MAX_OWNED_APPLES)] = t(series.summary.max_owned_apples)
-                src[agent_key(idx, SummaryProperties.MIN_OWNED_APPLES)] = t(series.summary.min_owned_apples)
+                src[agent_key(idx, SummaryProperties.END_OWNED_APPLES)] = t(series.summary.end_owned_apples)
                 src[agent_key(idx, SummaryProperties.AVG_OWNED_APPLES)] = t(series.summary.avg_owned_apples)
                 src[agent_key(idx, SummaryProperties.TOTAL_DONATED_APPLES)] = t(series.summary.total_donated_apples)
                 src[agent_key(idx, SummaryProperties.EPISODE_START)] = series.summary.episode_start
@@ -111,6 +116,23 @@ class StatsPanel:
 
             if not self._has_plot:
                 # create plots when the data arrives for the first time
+                self._p_explore_plot.line(
+                    x=SummaryProperties.EPISODE_START.value,
+                    y=Properties.LAST_EXPLORE_PROBABILITY.value,
+                    color=color.black,
+                    source=self._episode_summary_src
+                )
+
+                self._apple_plot.line(
+                    x=SummaryProperties.EPISODE_START.value,
+                    y='all_apples',
+                    color=color.green,
+                    source=self._episode_summary_src,
+                    line_width=2,
+                    muted_alpha=0.1,
+                    legend_label='all incl. pool',
+                )
+
                 self._make_summary_plot('all', color.red, color.salmon, color.darksalmon, lambda p: p.value)
 
                 for idx, base_color in zip(range(len(s.agent_series)), cycle(reversed(palettes.Colorblind8))):
@@ -124,8 +146,9 @@ class StatsPanel:
                     )
 
                 for plot in self._all_plots:
-                    plot.legend.location = "top_left"
-                    plot.legend.click_policy = "mute"
+                    if len(plot.legend) > 0:
+                        plot.legend.location = 'top_left'
+                        plot.legend.click_policy = 'mute'
 
                 self._has_plot = True
 
@@ -135,7 +158,7 @@ class StatsPanel:
     def _transform(self, arr: np.ndarray):
         if self._toggle_smooth_btn.active:
             window_size = self._smooth_size.value
-            return convolve(arr, np.ones(window_size)/window_size, mode='nearest')
+            return convolve(arr.astype(np.float32, copy=False), np.ones(window_size)/window_size, mode='nearest')
 
         return arr
 
@@ -144,7 +167,7 @@ class StatsPanel:
             x=src_key(SummaryProperties.EPISODE_START),
             y=src_key(SummaryProperties.AVG_Q),
             color=line_color,
-            muted_alpha=0.2,
+            muted_alpha=0.1,
             source=self._episode_summary_src,
             legend_label='{}'.format(name),
         )
@@ -163,7 +186,7 @@ class StatsPanel:
         )
 
         self._q_plot.add_layout(q_band)
-        q_renderer.js_on_change('muted', CustomJS(args=dict(band=q_band), code="band.visible = !cb_obj.muted;"))
+        q_renderer.js_on_change('muted', CustomJS(args=dict(band=q_band), code='band.visible = !cb_obj.muted;'))
 
         self._reward_plot.line(
             x=src_key(SummaryProperties.EPISODE_START),
@@ -171,31 +194,49 @@ class StatsPanel:
             source=self._episode_summary_src,
             line_width=1,
             color=line_color,
-            muted_alpha=0.2,
+            muted_alpha=0.1,
             legend_label='{}'.format(name),
         )
+        if name == 'all':
+            apples_renderer = self._apple_plot.line(
+                x=src_key(SummaryProperties.EPISODE_START),
+                y=src_key(SummaryProperties.END_OWNED_APPLES),
+                color=line_color,
+                muted_alpha=0.1,
+                source=self._episode_summary_src,
+                legend_label='{}'.format(name),
+            )
+        else:
+            apples_renderer = self._apple_plot.line(
+                x=src_key(SummaryProperties.EPISODE_START),
+                y=src_key(SummaryProperties.AVG_OWNED_APPLES),
+                color=line_color,
+                muted_alpha=0.1,
+                source=self._episode_summary_src,
+                legend_label='owned by {}'.format(name),
+            )
 
-        apples_renderer = self._apple_plot.line(
+            apples_band = Band(
+                base=src_key(SummaryProperties.EPISODE_START),
+                lower=0.0,
+                upper=src_key(SummaryProperties.MAX_OWNED_APPLES),
+                source=self._episode_summary_src,
+                level='underlay',
+                line_color=band_line_color,
+                line_alpha=1.0,
+                fill_color=band_fill_color,
+                fill_alpha=0.7,
+                line_width=1,
+            )
+
+            self._apple_plot.add_layout(apples_band)
+            apples_renderer.js_on_change('muted', CustomJS(args=dict(band=apples_band), code='band.visible = !cb_obj.muted;'))
+
+        self._donations_plot.line(
             x=src_key(SummaryProperties.EPISODE_START),
-            y=src_key(SummaryProperties.AVG_OWNED_APPLES),
+            y=src_key(SummaryProperties.TOTAL_DONATED_APPLES),
             color=line_color,
-            muted_alpha=0.2,
+            muted_alpha=0.1,
             source=self._episode_summary_src,
             legend_label='{}'.format(name),
         )
-
-        apples_band = Band(
-            base=src_key(SummaryProperties.EPISODE_START),
-            lower=src_key(SummaryProperties.MIN_OWNED_APPLES),
-            upper=src_key(SummaryProperties.MAX_OWNED_APPLES),
-            source=self._episode_summary_src,
-            level='underlay',
-            line_color=band_line_color,
-            line_alpha=1.0,
-            fill_color=band_fill_color,
-            fill_alpha=0.7,
-            line_width=1,
-        )
-
-        self._apple_plot.add_layout(apples_band)
-        apples_renderer.js_on_change('muted', CustomJS(args=dict(band=apples_band), code="band.visible = !cb_obj.muted;"))

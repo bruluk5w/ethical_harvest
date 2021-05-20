@@ -32,7 +32,8 @@ class VisApp:
         self._storage = None  # folder for all the data of the experiment
         self._stats_panel = StatsPanel(doc)
 
-        doc.add_root(column(self._experiment_dropdown, self._stats_panel.get_layout()))
+        doc.add_root(column(self._experiment_dropdown, self._stats_panel.get_layout(),
+                            margin=(0, 20, 0, 0), sizing_mode='scale_width'))
 
         self._load_experiment(self._name)
 
