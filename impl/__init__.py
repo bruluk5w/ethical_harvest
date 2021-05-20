@@ -1,5 +1,6 @@
 import atexit
 import concurrent.futures
+import multiprocessing
 from multiprocessing import parent_process
 
 
@@ -9,7 +10,7 @@ _PROCESS_POOL = None  # type: concurrent.futures.ProcessPoolExecutor
 def _process_pool_init():
     global _PROCESS_POOL
     if _PROCESS_POOL is None and parent_process() is None:
-        _PROCESS_POOL = concurrent.futures.ProcessPoolExecutor()
+        _PROCESS_POOL = concurrent.futures.ProcessPoolExecutor(max_workers=multiprocessing.cpu_count())
 
 
 def get_process_pool():
