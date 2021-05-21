@@ -187,6 +187,8 @@ class QStatsReader(Thread):
         series.last_explore_probability.append(last_explore_probability)
         series.num_owned_apples.append(num_owned_apples)
         series.num_donated_apples.append(num_donated_apples)
+        assert num_taken_donations <= 1
+        assert num_donated_apples <= 1
         series.num_taken_donations.append(num_taken_donations)
 
     def _read_episode_end(self, line):

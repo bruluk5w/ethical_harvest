@@ -18,8 +18,8 @@ register(
 
 
 RENDER_ENV = True
-MONITOR_AGENTS_INPUT = []
-SERVE_VISUALIZATION = True
+MONITOR_AGENTS_INPUT = [1, 2]
+SERVE_VISUALIZATION = False
 
 if MONITOR_AGENTS_INPUT:
     import cv2
@@ -30,7 +30,7 @@ _AGENT_INPUT_MONITORS = []
 
 def translate_state(state):
     if actions.SHOOT in cfg().REMOVED_ACTIONS:
-        # state[state == 0.2] = 0
+        state[state == 0.2] = 0
         pass
 
     return state
@@ -153,7 +153,7 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_small_map_conv_net_2',
+        EXPERIMENT_NAME='default',
         NUM_AGENTS=4,
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,
