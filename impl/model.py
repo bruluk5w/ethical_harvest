@@ -65,7 +65,6 @@ class Model:
             x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(x)
             outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
             model = CustomKerasModel(inputs, outputs)
-            model.summary()
 
             model.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
                           loss=losses.Huber(),
