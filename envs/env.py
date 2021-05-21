@@ -14,18 +14,6 @@ class CommonsGame(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    MOVE_UP = 0
-    MOVE_DOWN = 1
-    MOVE_LEFT = 2
-    MOVE_RIGHT = 3
-
-    TURN_CLOCKWISE = 4
-    TURN_COUNTERCLOCKWISE = 5
-    STAY = 6
-    SHOOT = 7
-    DONATE = 8
-    TAKE_DONATION = 9
-
     def __init__(self, num_agents, visual_radius, map_sketch, full_state, tabular_state):
         super(CommonsGame, self).__init__()
         self.full_state = full_state
@@ -112,13 +100,16 @@ class CommonsGame(gym.Env):
         board = cv2.resize(board, (500, 500), interpolation=cv2.INTER_NEAREST)
         ags = [self._game.things[c] for c in self.agentChars]
         plot_text = "Frame {} ".format(frame_idx)
-        for i, agent in enumerate(ags):
-            plot_text += "Agent " + str(i) + ": " + str(agent.has_apples) + ", "
         plot_text += "Common: " + str(self._game.things['@'].common_pool)
         cv2.putText(board, plot_text, (40, 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.5, color=(255, 255, 0), thickness=1)
-
+                    fontScale=0.4, color=(255, 255, 0), thickness=1)
+        plot_text = ""
+        for i, agent in enumerate(ags):
+            plot_text += "Agent " + str(i) + ": " + str(agent.has_apples) + ", "
+        cv2.putText(board, plot_text, (40, 42),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=0.3, color=(255, 255, 0), thickness=1)
         cv2.imshow('Environment', cv2.cvtColor(board, cv2.COLOR_BGR2RGB))
         cv2.waitKey(1)
 

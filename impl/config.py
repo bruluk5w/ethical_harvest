@@ -3,7 +3,7 @@ import os
 from collections import namedtuple
 from typing import Union
 from threading import Lock
-from envs.env import CommonsGame
+from envs import actions
 from constants import MAPS
 
 Config = namedtuple('Config', [
@@ -23,6 +23,7 @@ Config = namedtuple('Config', [
     'REMOVED_ACTIONS',
     'NUM_AGENTS',
     'MAP',
+    'TOP_BAR_SHOWS_INEQUALITY'
 ])
 
 __cfg_lock = Lock()
@@ -52,7 +53,14 @@ def load_cfg(filename='config.json'):
     global __cfg
     path = os.path.join(get_storage(), filename)
     with __cfg_lock, open(path, 'r', encoding='utf-8') as f:
-        __cfg = Config(**json.load(f))
+        try:
+            __cfg = Config(**json.load(f))
+        except TypeError:
+            print("Warning: config version not compatible. Trying to load with defaults for fields that are not present"
+                  " in the config file!")
+            new_cfg = __cfg._asdict()
+            new_cfg.update(**json.load(f))
+            __cfg = Config(**new_cfg)
 
     print('Loaded config from \"{}\"'.format(path))
 
@@ -66,7 +74,7 @@ __DEFAULT_EXPERIMENT_NAME = 'default'
 # Agent training config
 __DEFAULT_TARGET_NETWORK_UPDATE_FREQUENCY = -1
 __DEFAULT_MINI_BATCH_SIZE = 32
-__DEFAULT_DISCOUNT_FACTOR = 0.98
+__DEFAULT_DISCOUNT_FACTOR = 0.97
 __DEFAULT_REPLAY_BUFFER_LENGTH = 10000  # 100000
 __DEFAULT_REPLAY_BUFFER_MIN_LENGTH_FOR_USE = 100  # 10000
 __DEFAULT_EXPLORATION_ANNEALING = 1 / 100000
@@ -75,9 +83,10 @@ __DEFAULT_NUM_TORTURE_FRAMES = 20
 # only start effective annealing when we begin using the replay buffer
 __DEFAULT_EXPLORE_PROBABILITY_MAX = 1.0 + __DEFAULT_REPLAY_BUFFER_MIN_LENGTH_FOR_USE * __DEFAULT_EXPLORATION_ANNEALING
 # environment config
-__DEFAULT_REMOVED_ACTIONS = [CommonsGame.TURN_CLOCKWISE, CommonsGame.TURN_COUNTERCLOCKWISE, CommonsGame.SHOOT]
-__DEFAULT_NUM_AGENTS = 2
-__DEFAULT_MAP = MAPS['tinyMap']
+__DEFAULT_REMOVED_ACTIONS = [actions.TURN_CLOCKWISE, actions.TURN_COUNTERCLOCKWISE, actions.SHOOT]
+__DEFAULT_NUM_AGENTS = 4
+__DEFAULT_MAP = MAPS['smallMap']
+__DEFAULT_TOP_BAR_SHOWS_INEQUALITY = False
 
 if __cfg is None:
     set_config(
@@ -97,6 +106,7 @@ if __cfg is None:
         REMOVED_ACTIONS=__DEFAULT_REMOVED_ACTIONS,
         NUM_AGENTS=__DEFAULT_NUM_AGENTS,
         MAP=__DEFAULT_MAP,
+        TOP_BAR_SHOWS_INEQUALITY=__DEFAULT_TOP_BAR_SHOWS_INEQUALITY
     )
 
 

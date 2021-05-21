@@ -6,6 +6,7 @@ from tensorflow.keras.models import load_model
 
 
 LEARNING_RATE = 0.001
+DENSE_MODEL = False
 
 
 class CustomKerasModel(KerasModel):
@@ -27,12 +28,6 @@ class CustomKerasModel(KerasModel):
 
         self.compiled_metrics.update_state(target_q_values_t, predicted_q_values)
         return {m.name: m.result() for m in self.metrics}
-
-    # def call(self, inputs, training=None, mask=None):
-    #     pass
-    #
-    # def get_config(self):
-    #     pass
 
 
 class Model:
@@ -63,23 +58,38 @@ class Model:
         self._model.load_weights(weights_path)
 
     def _create_model(self):
-        inputs = layers.Input(shape=self._input_size)
-        x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(inputs)
-        x = layers.Flatten()(x)
-        x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(x)
-        outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
-        model = CustomKerasModel(inputs, outputs)
+        if DENSE_MODEL:
+            inputs = layers.Input(shape=self._input_size)
+            x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(inputs)
+            x = layers.Flatten()(x)
+            x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(x)
+            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
+            model = CustomKerasModel(inputs, outputs)
+            model.summary()
+
+            model.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
+                          loss=losses.Huber(),
+                          metrics=['accuracy'])
+
+        else:
+            inputs = layers.Input(shape=self._input_size)
+            x = layers.Conv2D(32, (3, 3), strides=(1, 1),
+                              activation='relu',
+                              # default parameters result in He initialization that work better with relu activation
+                              kernel_initializer=VarianceScaling())(inputs)
+            x = layers.Conv2D(64, (2, 2), strides=(1, 1),
+                              activation='relu',
+                              # default parameters result in He initialization that work better with relu activation
+                              kernel_initializer=VarianceScaling())(x)
+            x = layers.Flatten()(x)
+            x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(x)
+            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
+            model = CustomKerasModel(inputs, outputs)
+
+            model.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
+                          loss=losses.Huber(),
+                          metrics=['accuracy'])
+
         model.summary()
 
-        model.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
-                      loss=losses.Huber(),
-                      metrics=['accuracy'])
-
         return model
-
-    # def get_config(self):
-    #     return {'input_size': self._input_size, 'output_size': self._output_size}
-    #
-    # @classmethod
-    # def from_config(cls, config, custom_objects=None):
-    #     return cls(**config)

@@ -1,8 +1,12 @@
+import math
+
 import numpy as np
 from pycolab.prefab_parts import sprites
 from pycolab import things as pythings
 from scipy.ndimage import convolve
 from constants import *
+from impl.config import cfg
+from envs import actions as action_codes
 
 
 class PlayerSprite(sprites.MazeWalker):
@@ -50,7 +54,7 @@ class PlayerSprite(sprites.MazeWalker):
                 self.timeout = TIMEOUT_FRAMES
                 self._visible = False
             else:
-                if a == 0:  # go upward?
+                if a == action_codes.MOVE_UP:
                     if self.orientation == 0:
                         self._north(board, the_plot)
                     elif self.orientation == 1:
@@ -59,7 +63,7 @@ class PlayerSprite(sprites.MazeWalker):
                         self._south(board, the_plot)
                     elif self.orientation == 3:
                         self._west(board, the_plot)
-                elif a == 1:  # go downward?
+                elif a == action_codes.MOVE_DOWN:
                     if self.orientation == 0:
                         self._south(board, the_plot)
                     elif self.orientation == 1:
@@ -68,7 +72,7 @@ class PlayerSprite(sprites.MazeWalker):
                         self._north(board, the_plot)
                     elif self.orientation == 3:
                         self._east(board, the_plot)
-                elif a == 2:  # go leftward?
+                elif a == action_codes.MOVE_LEFT:
                     if self.orientation == 0:
                         self._west(board, the_plot)
                     elif self.orientation == 1:
@@ -77,7 +81,7 @@ class PlayerSprite(sprites.MazeWalker):
                         self._east(board, the_plot)
                     elif self.orientation == 3:
                         self._south(board, the_plot)
-                elif a == 3:  # go rightward?
+                elif a == action_codes.MOVE_RIGHT:
                     if self.orientation == 0:
                         self._east(board, the_plot)
                     elif self.orientation == 1:
@@ -86,24 +90,24 @@ class PlayerSprite(sprites.MazeWalker):
                         self._west(board, the_plot)
                     elif self.orientation == 3:
                         self._north(board, the_plot)
-                elif a == 4:  # turn right?
+                elif a == action_codes.TURN_CLOCKWISE:
                     if self.orientation == 3:
                         self.orientation = 0
                     else:
                         self.orientation = self.orientation + 1
-                elif a == 5:  # turn left?
+                elif a == action_codes.TURN_COUNTERCLOCKWISE:
                     if self.orientation == 0:
                         self.orientation = 3
                     else:
                         self.orientation = self.orientation - 1
-                elif a == 6:  # do nothing?
+                elif a == action_codes.STAY:
                     self.did_nothing = True
                     self._stay(board, the_plot)
-                elif a == 8:  # donate?
+                elif a == action_codes.DONATE:
                     if self.has_apples > 0:
                         self.has_donated = True
                     self._stay(board, the_plot)
-                elif a == 9:  # took donation?
+                elif a == action_codes.TAKE_DONATION:
                     self.took_donation = True
                     self._stay(board, the_plot)
         else:
@@ -266,11 +270,13 @@ class AppleDrape(pythings.Drape):
             agents_map[ag.position[0], ag.position[1]] = False
 
         the_plot.add_reward(rewards)
+
+        # calculate apple respawn probability
         # Matrix of local stock of apples
         kernel = np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 0, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]])
         apple_sources = self.curtain[self.numPadPixels + 1:-self.numPadPixels - 1,
                                      self.numPadPixels + 1:-self.numPadPixels - 1] * 1
-        apple_sources[0] = 0  # delete top bar of inventory apples
+        apple_sources[0] = 0  # delete top bar of apples display
         num_local_apples = convolve(apple_sources, kernel, mode='constant')
         probs = np.zeros(num_local_apples.shape)
 
@@ -278,34 +284,62 @@ class AppleDrape(pythings.Drape):
         probs[(num_local_apples > 2) & (num_local_apples <= 4)] = RESPAWN_PROBABILITIES[1]
         probs[(num_local_apples > 4)] = RESPAWN_PROBABILITIES[2]
 
+        # draw apple display in top bar
         agent_idx = 0
+        x_offset = self.numPadPixels + 1
+        y_offset = self.numPadPixels + 1
+        if cfg().TOP_BAR_SHOWS_INEQUALITY:
+            target_apples = math.sqrt(sum(ag.has_apples * ag.has_apples for ag in ags) / len(ags))
+            # show underperformance of agents in top bar
+            for agent in ags:
+                underperformance = max(0, target_apples - agent.has_apples)
+                if underperformance > 1.5:
+                    self.apples[x_offset, y_offset + 3 * agent_idx] = True
+                    self.curtain[x_offset, y_offset + 3 * agent_idx] = True
 
-        x_agent = self.numPadPixels + 1
-        y_agent = self.numPadPixels + 1
+                    self.apples[x_offset, y_offset + 1 + 3 * agent_idx] = True
+                    self.curtain[x_offset, y_offset + 1 + 3 * agent_idx] = True
+                if underperformance > 3.5:
+                    self.apples[x_offset, y_offset + 3 * agent_idx] = True
+                    self.curtain[x_offset, y_offset + 3 * agent_idx] = True
 
-        for agent in ags:
-            if agent.has_apples > 1:
-                self.apples[x_agent, y_agent + 3 * agent_idx] = True
-                self.curtain[x_agent, y_agent + 3 * agent_idx] = True
+                    self.apples[x_offset, y_offset + 1 + 3 * agent_idx] = False
+                    self.curtain[x_offset, y_offset + 1 + 3 * agent_idx] = False
+                else:
+                    self.apples[x_offset, y_offset + 3 * agent_idx] = False
+                    self.curtain[x_offset, y_offset + 3 * agent_idx] = False
 
-                self.apples[x_agent, y_agent + 1 + 3 * agent_idx] = True
-                self.curtain[x_agent, y_agent + 1 + 3 * agent_idx] = True
-            elif agent.has_apples > 0:
-                self.apples[x_agent, y_agent + 3 * agent_idx] = True
-                self.curtain[x_agent, y_agent + 3 * agent_idx] = True
+                    self.apples[x_offset, y_offset + 1 + 3 * agent_idx] = False
+                    self.curtain[x_offset, y_offset + 1 + 3 * agent_idx] = False
 
-                self.apples[x_agent, y_agent + 1 + 3 * agent_idx] = False
-                self.curtain[x_agent, y_agent + 1 + 3 * agent_idx] = False
-            else:
-                self.apples[x_agent, y_agent + 3 * agent_idx] = False
-                self.curtain[x_agent, y_agent + 3 * agent_idx] = False
+                agent_idx += 1
 
-                self.apples[x_agent, y_agent + 1 + 3 * agent_idx] = False
-                self.curtain[x_agent, y_agent + 1 + 3 * agent_idx] = False
-            agent_idx += 1
+        else:
+            for agent in ags:
+                if agent.has_apples > 1:
+                    self.apples[x_offset, y_offset + 3 * agent_idx] = True
+                    self.curtain[x_offset, y_offset + 3 * agent_idx] = True
+
+                    self.apples[x_offset, y_offset + 1 + 3 * agent_idx] = True
+                    self.curtain[x_offset, y_offset + 1 + 3 * agent_idx] = True
+                elif agent.has_apples > 0:
+                    self.apples[x_offset, y_offset + 3 * agent_idx] = True
+                    self.curtain[x_offset, y_offset + 3 * agent_idx] = True
+
+                    self.apples[x_offset, y_offset + 1 + 3 * agent_idx] = False
+                    self.curtain[x_offset, y_offset + 1 + 3 * agent_idx] = False
+                else:
+                    self.apples[x_offset, y_offset + 3 * agent_idx] = False
+                    self.curtain[x_offset, y_offset + 3 * agent_idx] = False
+
+                    self.apples[x_offset, y_offset + 1 + 3 * agent_idx] = False
+                    self.curtain[x_offset, y_offset + 1 + 3 * agent_idx] = False
+
+                agent_idx += 1
 
         apple_idxs = np.argwhere(np.logical_and(np.logical_xor(self.apples, self.curtain), agents_map))
 
+        # respawn apples
         for i, j in apple_idxs:
             if SUSTAINABILITY_MATTERS:
                 self.curtain[i, j] = np.random.choice([True, False],

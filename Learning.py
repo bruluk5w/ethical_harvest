@@ -5,9 +5,9 @@ import gym
 import numpy as np
 from gym.envs.registration import register
 
-from envs import CommonsGame
+from envs import actions
 from impl.agent import Agent
-from impl.config import cfg, save_cfg
+from impl.config import cfg, save_cfg, set_config, Config
 from impl.stats_to_file import StatsWriter, get_trace_file_path
 
 register(
@@ -16,7 +16,7 @@ register(
 )
 
 
-RENDER_ENV = False
+RENDER_ENV = True
 MONITOR_AGENTS_INPUT = []
 SERVE_VISUALIZATION = False
 
@@ -28,7 +28,7 @@ _AGENT_INPUT_MONITORS = []
 
 
 def translate_state(state):
-    if CommonsGame.SHOOT in cfg().REMOVED_ACTIONS:
+    if actions.SHOOT in cfg().REMOVED_ACTIONS:
         state[state == 0.2] = 0
 
     return state
@@ -149,6 +149,11 @@ if __name__ == '__main__':
     if parent_process() is None:
         from impl import init_tensorflow
         init_tensorflow()
+
+    set_config(
+        EXPERIMENT_NAME='inequality_0',
+        TOP_BAR_SHOWS_INEQUALITY=True,
+    )
 
     save_cfg()
 
