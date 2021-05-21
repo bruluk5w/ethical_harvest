@@ -78,7 +78,7 @@ class Agent:
         path_target = os.path.join(filepath, model_name(str(self._agent_idx), "target", self._episode_idx))
         return path_online, path_target
 
-    def step(self, last_reward, new_state, training) -> Union[None, Tuple[int]]:
+    def step(self, last_reward, new_state, training) -> Union[None, int]:
         if new_state is None:
             # we have been shot or are sick
             self._frame += 1
@@ -126,9 +126,10 @@ class Agent:
         last_states, next_states, last_actions, rewards = self._replay_buffer.sample(cfg().MINI_BATCH_SIZE)
 
         # should this be the online network for double dqn?
-        next_qvalues = self._target_network(next_states)
+        next_action = np.argmax(self._online_network(next_states).numpy(), axis=1)
         # the target values of the q values that were chosen in the individual frames
-        target_q_values = np.squeeze(rewards) + cfg().DISCOUNT_FACTOR * np.amax(next_qvalues, axis=-1)
+        qs = self._target_network(next_states).numpy()
+        target_q_values = np.squeeze(rewards) + cfg().DISCOUNT_FACTOR * np.squeeze(np.take_along_axis(qs, next_action[None, :].T, 1))
 
         num_actions = int(np.prod(self._action_size))
         actions_one_hot = np.eye(num_actions, dtype=np.float32).reshape(num_actions, *self._action_size)[last_actions]

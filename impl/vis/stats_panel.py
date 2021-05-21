@@ -204,7 +204,7 @@ class StatsPanel:
                 color=line_color,
                 muted_alpha=0.1,
                 source=self._episode_summary_src,
-                legend_label='{}'.format(name),
+                legend_label='owned by all at end'.format(name),
             )
         else:
             apples_renderer = self._apple_plot.line(
@@ -213,7 +213,7 @@ class StatsPanel:
                 color=line_color,
                 muted_alpha=0.1,
                 source=self._episode_summary_src,
-                legend_label='owned by {}'.format(name),
+                legend_label='mean and max owned by {}'.format(name),
             )
 
             apples_band = Band(

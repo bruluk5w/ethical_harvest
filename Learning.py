@@ -13,13 +13,13 @@ from impl.stats_to_file import StatsWriter, get_trace_file_path
 
 register(
     id='CommonsGame-v0',
-    entry_point='envs:CommonsGame',
+    entry_point='envs.env:CommonsGame',
 )
 
 
 RENDER_ENV = True
 MONITOR_AGENTS_INPUT = []
-SERVE_VISUALIZATION = False
+SERVE_VISUALIZATION = True
 
 if MONITOR_AGENTS_INPUT:
     import cv2
@@ -69,10 +69,10 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
     episode_lengths = []
 
     for episode in range(start_episode, episodes):
-        new_states = [translate_state(observation) for observation in environment.reset()]  # type: List[np.ndarray]
+        observations = [translate_state(observation) for observation in environment.reset()]  # type: List[np.ndarray]
 
         if agents is None:
-            agents = [Agent(new_states[idx], action_space, idx, episode) for idx in range(environment.num_agents)]
+            agents = [Agent(observations[idx], action_space, idx, episode) for idx in range(environment.num_agents)]
             if episode < 0:
                 for agent in agents:
                     agent.save_model()
@@ -92,7 +92,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
             actions = [None] * len(agents)
 
             futures_to_agent = {_threadPool.submit(agent.step, last_reward, new_state, training=train): agent
-                                for agent, last_reward, new_state in zip(agents, last_rewards, new_states)}
+                                for agent, last_reward, new_state in zip(agents, last_rewards, observations)}
 
             for future in concurrent.futures.as_completed(futures_to_agent):
                 agent = futures_to_agent[future]
@@ -152,9 +152,9 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_tiny_map_conv_net_0',
-        NUM_AGENTS=2,
-        MAP=MAPS['tinyMap'],
+        EXPERIMENT_NAME='inequality_small_map_conv_net_1',
+        NUM_AGENTS=4,
+        MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,
         USE_INEQUALITY_FOR_REWARD=True,
     )
