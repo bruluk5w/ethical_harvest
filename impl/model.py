@@ -1,5 +1,5 @@
 import numpy as np
-from tensorflow import GradientTape, losses, squeeze, reduce_sum, convert_to_tensor, clip_by_value, where
+from tensorflow import GradientTape, losses, squeeze, reduce_sum, convert_to_tensor
 from tensorflow.keras import Model as KerasModel, layers, optimizers
 from tensorflow.keras.initializers import VarianceScaling, RandomNormal
 from tensorflow.keras.models import load_model

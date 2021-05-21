@@ -1,4 +1,6 @@
 import concurrent.futures
+import json
+import os
 from typing import List, Union
 
 import gym
@@ -8,7 +10,7 @@ from gym.envs.registration import register
 from constants import MAPS
 from envs import actions
 from impl.agent import Agent
-from impl.config import cfg, save_cfg, set_config
+from impl.config import cfg, save_cfg, set_config, get_storage
 from impl.stats_to_file import StatsWriter, get_trace_file_path
 
 register(
@@ -77,6 +79,14 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
             if episode < 0:
                 for agent in agents:
                     agent.save_model()
+
+                for idx, agent in enumerate(environment.get_agents()):
+                    with open(os.path.join(get_storage(), 'agent_config_{}'.format(idx)), 'w', encoding='utf-8') as f:
+                        json.dump(agent.get_agent_config(), f)
+            else:
+                for idx, agent in enumerate(environment.get_agents()):
+                    with open(os.path.join(get_storage(), 'agent_config_{}'.format(idx)), 'r', encoding='utf-8') as f:
+                        agent.set_agent_config(json.load(f))
 
             last_rewards = [0.0] * environment.num_agents
 
@@ -166,7 +176,7 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='default',
+        EXPERIMENT_NAME='inequality_small_map_conv_net_2',
         NUM_AGENTS=4,
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,

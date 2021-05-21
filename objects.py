@@ -33,6 +33,16 @@ class PlayerSprite(sprites.MazeWalker):
         self.donated_apples = 0
         self.taken_apples = 0
 
+    def get_agent_config(self):
+        return {
+            'efficiency': self.efficiency,
+            'probability_getting_sick': self.probability_getting_sick,
+        }
+
+    def set_agent_config(self, config):
+        self.efficiency = config['efficiency']
+        self.probability_getting_sick = config['probability_getting_sick']
+
     def set_sickness(self, prob):
         if 0 <= prob <= 100:
             if AGENTS_CAN_GET_SICK:
@@ -242,7 +252,7 @@ class AppleDrape(pythings.Drape):
             took_donation = ag.took_donation
             shot = ag.has_shot
             ag.donated_apples = 0
-            ag.took_donation = 0
+            ag.taken_apples = 0
             if donation:
                 ag.has_donated = False
                 ag.has_apples -= 1
@@ -253,7 +263,7 @@ class AppleDrape(pythings.Drape):
                 if self.common_pool > 0:
                     self.common_pool -= 1
                     ag.has_apples += 1
-                    ag.took_donation = 1
+                    ag.taken_apples = 1
                     greedy = ag.has_apples > TOO_MANY_APPLES
             elif shot:
                 ag.has_shot = False

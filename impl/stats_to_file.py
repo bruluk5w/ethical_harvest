@@ -42,7 +42,7 @@ class StatsWriter:
                 avatar.donated_apples,
                 avatar.taken_apples,
             )
-
+            agent.last_reward = None
             avatar.donated_apples = 0
             avatar.taken_apples = 0
 
