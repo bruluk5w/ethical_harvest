@@ -78,7 +78,7 @@ class Agent:
         path_target = os.path.join(filepath, model_name(str(self._agent_idx), "target", self._episode_idx))
         return path_online, path_target
 
-    def step(self, last_reward, new_state, training) -> Union[None, int]:
+    def step(self, last_reward, new_state, is_terminal_state, training) -> Union[None, int]:
         if new_state is None:
             # we have been shot or are sick
             self._frame += 1
@@ -88,7 +88,8 @@ class Agent:
         if training:
             if self._last_state is not None:
                 self._replay_buffer.remember(ReplayFrame(last_state=self._last_state, last_action=self._last_action,
-                                                         reward=last_reward, next_state=new_state))
+                                                         reward=last_reward, next_state=new_state,
+                                                         is_terminal_state=is_terminal_state))
 
             if len(self._replay_buffer) >= cfg().REPLAY_BUFFER_MIN_LENGTH_FOR_USE:
                 self._train_network()
@@ -123,13 +124,18 @@ class Agent:
         return int(random.choice(range(self._action_size[0])))
 
     def _train_network(self):
-        last_states, next_states, last_actions, rewards = self._replay_buffer.sample(cfg().MINI_BATCH_SIZE)
+        last_states, next_states, last_actions, rewards, is_terminal_state = \
+            self._replay_buffer.sample(cfg().MINI_BATCH_SIZE)
 
         # should this be the online network for double dqn?
         next_action = np.argmax(self._online_network(next_states).numpy(), axis=1)
         # the target values of the q values that were chosen in the individual frames
         qs = self._target_network(next_states).numpy()
-        target_q_values = np.squeeze(rewards) + cfg().DISCOUNT_FACTOR * np.squeeze(np.take_along_axis(qs, next_action[None, :].T, 1))
+        target_q_values = (np.squeeze(rewards) + cfg().DISCOUNT_FACTOR *
+                           np.squeeze(np.take_along_axis(qs, next_action[None, :].T, 1)))
+
+        # neglect q if next but one state does not exist
+        target_q_values[is_terminal_state] = rewards[is_terminal_state]
 
         num_actions = int(np.prod(self._action_size))
         actions_one_hot = np.eye(num_actions, dtype=np.float32).reshape(num_actions, *self._action_size)[last_actions]

@@ -88,7 +88,7 @@ class Model:
             model.compile(optimizer=optimizers.RMSprop(
                             learning_rate=LEARNING_RATE, momentum=0.95
                           ),
-                          loss=losses.Huber(),
+                          loss=losses.MeanSquaredError(),
                           metrics=['accuracy'])
 
         model.summary()

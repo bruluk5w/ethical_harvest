@@ -85,8 +85,8 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
 
         timestep = None
         n_torture_frames = 0
-        sum_rewards = 0
         for timestep in range(timesteps):
+            terminal_state = timestep == timesteps - 1
             if verbose:
                 print("--Episode", episode, ", Time step", timestep, "--")
 
@@ -101,7 +101,12 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
                 actions[agent.agent_idx] = action_space[action_idx] if action_idx is not None else None
 
             observations, last_rewards, n_done, n_info = environment.step(actions)
-            sum_rewards += sum(last_rewards)  # rewards for the last action
+
+            if all(n_done):
+                n_torture_frames += 1
+                if n_torture_frames > cfg().NUM_TORTURE_FRAMES:
+                    terminal_state = True
+
             observations = [translate_state(observation) for observation in observations]
 
             for monitor_idx, (agent_idx, observation) in enumerate((idx, obs) for idx, obs in enumerate(observations)
@@ -117,13 +122,20 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
             if frame_callback:
                 frame_callback(agents, environment.get_agents(), environment.get_apple_drape(), episode)
 
-            if all(n_done):
-                n_torture_frames += 1
-                if n_torture_frames > cfg().NUM_TORTURE_FRAMES:
-                    break
+            if terminal_state:
+                futures_to_agent = {
+                    _threadPool.submit(agent.step, last_reward, new_state,
+                                       is_terminal_state=True, training=train): agent
+                    for agent, last_reward, new_state in zip(agents, last_rewards, observations)
+                }
+
+                for future in concurrent.futures.as_completed(futures_to_agent):
+                    future.result()  # we are not interested in the result but fetch it anyway for cleanliness
+
+                break
 
         episode_lengths.append(timestep)
-        print("{}, {}".format(sum_rewards, episode_lengths))
+        print("{}".format(episode_lengths))
 
         if train:
             if cfg().TARGET_NETWORK_UPDATE_FREQUENCY <= 0:
@@ -158,7 +170,7 @@ if __name__ == '__main__':
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,
         USE_INEQUALITY_FOR_REWARD=True,
-        NUM_TORTURE_FRAMES=30,
+        NUM_TORTURE_FRAMES=10,
     )
 
     save_cfg()
