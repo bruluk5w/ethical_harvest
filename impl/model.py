@@ -3,7 +3,7 @@ from tensorflow import GradientTape, losses, squeeze, reduce_sum, convert_to_ten
 from tensorflow.keras import Model as KerasModel, layers, optimizers
 from tensorflow.keras.initializers import VarianceScaling, RandomNormal
 from tensorflow.keras.models import load_model
-
+from tensorflow.python.ops.init_ops import GlorotUniform
 
 LEARNING_RATE = 0.001
 DENSE_MODEL = False
@@ -74,15 +74,13 @@ class Model:
             inputs = layers.Input(shape=self._input_size)
             x = layers.Conv2D(32, (3, 3), strides=(1, 1),
                               activation='relu',
-                              # default parameters result in He initialization that work better with relu activation
-                              kernel_initializer=RandomNormal())(inputs)
+                              kernel_initializer=GlorotUniform())(inputs)
             x = layers.Conv2D(64, (2, 2), strides=(1, 1),
                               activation='relu',
-                              # default parameters result in He initialization that work better with relu activation
-                              kernel_initializer=RandomNormal())(x)
+                              kernel_initializer=GlorotUniform())(x)
             x = layers.Flatten()(x)
-            x = layers.Dense(256, activation='relu', kernel_initializer=RandomNormal())(x)
-            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=RandomNormal())(x)
+            x = layers.Dense(256, activation='relu', kernel_initializer=GlorotUniform())(x)
+            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=GlorotUniform())(x)
             model = CustomKerasModel(inputs, outputs)
 
             model.compile(optimizer=optimizers.RMSprop(

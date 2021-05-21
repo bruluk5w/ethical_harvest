@@ -35,8 +35,8 @@ class PlayerSprite(sprites.MazeWalker):
 
     def get_agent_config(self):
         return {
-            'efficiency': self.efficiency,
-            'probability_getting_sick': self.probability_getting_sick,
+            'efficiency': int(self.efficiency),
+            'probability_getting_sick': int(self.probability_getting_sick),
         }
 
     def set_agent_config(self, config):
