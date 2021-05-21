@@ -90,6 +90,5 @@ class Model:
                           loss=losses.Huber(),
                           metrics=['accuracy'])
 
-        model.summary()
-
+        # model.summary()
         return model

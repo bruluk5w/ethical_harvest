@@ -1,12 +1,13 @@
 import math
 
 import numpy as np
-from pycolab.prefab_parts import sprites
 from pycolab import things as pythings
+from pycolab.prefab_parts import sprites
 from scipy.ndimage import convolve
+
 from constants import *
-from impl.config import cfg
 from envs import actions as action_codes
+from impl.config import cfg
 
 
 class PlayerSprite(sprites.MazeWalker):
@@ -218,7 +219,10 @@ class AppleDrape(pythings.Drape):
         rewards = []
         ags = [things[c] for c in self.agentChars]
         agents_map = np.ones(self.curtain.shape, dtype=bool)
+        reward_args = []
         for ag in ags:
+            args = {}
+            reward_args.append(args)
             agent_efficiency = ag.efficiency  # The number of apples it can collect on each turn
             rew = self.curtain[ag.position[0], ag.position[1]]
             greedy = False  # A greedy agent takes more apples than what it needs
@@ -254,18 +258,42 @@ class AppleDrape(pythings.Drape):
             elif shot:
                 ag.has_shot = False
 
+            args['rew'] = rew
+            args['greedy'] = greedy
+            args['not_stupid'] = not_stupid
+            args['donation'] = donation
+            args['took_donation'] = took_donation
+            args['shot'] = shot
+
+        target_apples = math.sqrt(sum(ag.has_apples * ag.has_apples for ag in ags) / len(ags))
+
+        for ag, args in zip(ags, reward_args):
             if ag.timeout > 0:
                 rewards.append(0)
             else:
-                # The rewards takes into account if an apple has been gathered or if an apple has been donated
-                rewards.append(
-                    rew * APPLE_GATHERING_REWARD +
-                    greedy * TOO_MANY_APPLES_PUNISHMENT +
-                    not_stupid * DID_NOTHING_BECAUSE_MANY_APPLES_REWARD +
-                    donation * DONATION_REWARD +
-                    took_donation * TOOK_DONATION_REWARD +
-                    shot * SHOOTING_PUNISHMENT
-                )
+                if cfg().USE_INEQUALITY_FOR_REWARD:
+                    overperformance = max(0, ag.has_apples - target_apples)
+                    donation_reward = max(0, DONATION_REWARD) if args['donation'] else DONATION_REWARD
+                    overperformance_penalty = 0 if args['donation'] else - overperformance * 0.5
+                    rewards.append(
+                        args['rew'] * APPLE_GATHERING_REWARD +
+                        args['greedy'] * TOO_MANY_APPLES_PUNISHMENT +
+                        args['not_stupid'] * DID_NOTHING_BECAUSE_MANY_APPLES_REWARD +
+                        args['donation'] * donation_reward +
+                        args['took_donation'] * TOOK_DONATION_REWARD +
+                        args['shot'] * SHOOTING_PUNISHMENT +
+                        overperformance_penalty
+                    )
+                else:
+                    # The rewards takes into account if an apple has been gathered or if an apple has been donated
+                    rewards.append(
+                        args['rew'] * APPLE_GATHERING_REWARD +
+                        args['greedy'] * TOO_MANY_APPLES_PUNISHMENT +
+                        args['not_stupid'] * DID_NOTHING_BECAUSE_MANY_APPLES_REWARD +
+                        args['donation'] * DONATION_REWARD +
+                        args['took_donation'] * TOOK_DONATION_REWARD +
+                        args['shot'] * SHOOTING_PUNISHMENT
+                    )
 
             agents_map[ag.position[0], ag.position[1]] = False
 
@@ -289,7 +317,6 @@ class AppleDrape(pythings.Drape):
         x_offset = self.numPadPixels + 1
         y_offset = self.numPadPixels + 1
         if cfg().TOP_BAR_SHOWS_INEQUALITY:
-            target_apples = math.sqrt(sum(ag.has_apples * ag.has_apples for ag in ags) / len(ags))
             # show underperformance of agents in top bar
             for agent in ags:
                 underperformance = max(0, target_apples - agent.has_apples)

@@ -109,7 +109,7 @@ class CommonsGame(gym.Env):
             plot_text += "Agent " + str(i) + ": " + str(agent.has_apples) + ", "
         cv2.putText(board, plot_text, (40, 42),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=0.3, color=(255, 255, 0), thickness=1)
+                    fontScale=0.4, color=(255, 255, 0), thickness=1)
         cv2.imshow('Environment', cv2.cvtColor(board, cv2.COLOR_BGR2RGB))
         cv2.waitKey(1)
 

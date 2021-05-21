@@ -5,9 +5,10 @@ import gym
 import numpy as np
 from gym.envs.registration import register
 
+from constants import MAPS
 from envs import actions
 from impl.agent import Agent
-from impl.config import cfg, save_cfg, set_config, Config
+from impl.config import cfg, save_cfg, set_config
 from impl.stats_to_file import StatsWriter, get_trace_file_path
 
 register(
@@ -151,8 +152,11 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_0',
+        EXPERIMENT_NAME='inequality_tiny_map_conv_net_0',
+        NUM_AGENTS=2,
+        MAP=MAPS['tinyMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,
+        USE_INEQUALITY_FOR_REWARD=True,
     )
 
     save_cfg()

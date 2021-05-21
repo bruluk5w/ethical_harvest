@@ -1,10 +1,11 @@
 import json
 import os
 from collections import namedtuple
-from typing import Union
 from threading import Lock
-from envs import actions
+from typing import Union
+
 from constants import MAPS
+from envs import actions
 
 Config = namedtuple('Config', [
     # General config
@@ -23,7 +24,8 @@ Config = namedtuple('Config', [
     'REMOVED_ACTIONS',
     'NUM_AGENTS',
     'MAP',
-    'TOP_BAR_SHOWS_INEQUALITY'
+    'TOP_BAR_SHOWS_INEQUALITY',
+    'USE_INEQUALITY_FOR_REWARD',
 ])
 
 __cfg_lock = Lock()
@@ -87,6 +89,7 @@ __DEFAULT_REMOVED_ACTIONS = [actions.TURN_CLOCKWISE, actions.TURN_COUNTERCLOCKWI
 __DEFAULT_NUM_AGENTS = 4
 __DEFAULT_MAP = MAPS['smallMap']
 __DEFAULT_TOP_BAR_SHOWS_INEQUALITY = False
+__DEFAULT_USE_INEQUALITY_FOR_REWARD = False
 
 if __cfg is None:
     set_config(
@@ -106,7 +109,8 @@ if __cfg is None:
         REMOVED_ACTIONS=__DEFAULT_REMOVED_ACTIONS,
         NUM_AGENTS=__DEFAULT_NUM_AGENTS,
         MAP=__DEFAULT_MAP,
-        TOP_BAR_SHOWS_INEQUALITY=__DEFAULT_TOP_BAR_SHOWS_INEQUALITY
+        TOP_BAR_SHOWS_INEQUALITY=__DEFAULT_TOP_BAR_SHOWS_INEQUALITY,
+        USE_INEQUALITY_FOR_REWARD=__DEFAULT_USE_INEQUALITY_FOR_REWARD,
     )
 
 
