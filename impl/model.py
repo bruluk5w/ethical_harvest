@@ -1,7 +1,7 @@
 import numpy as np
-from tensorflow import GradientTape, losses, squeeze, reduce_sum, convert_to_tensor
+from tensorflow import GradientTape, losses, squeeze, reduce_sum, convert_to_tensor, clip_by_value, where
 from tensorflow.keras import Model as KerasModel, layers, optimizers
-from tensorflow.keras.initializers import VarianceScaling
+from tensorflow.keras.initializers import VarianceScaling, RandomNormal
 from tensorflow.keras.models import load_model
 
 
@@ -17,7 +17,7 @@ class CustomKerasModel(KerasModel):
         todo: for sample weight see implementation in base class
         Have to override to multiply the one-hot encoded actions as a mask
         """
-        states, target_q_values, actions_one_hot = data
+        states, target_q_values, actions_one_hot, is_terminal = data
         with GradientTape() as tape:
             qvalues = self(states, training=False)
             predicted_q_values = reduce_sum(qvalues * squeeze(actions_one_hot), axis=1)
@@ -42,8 +42,8 @@ class Model:
     def __call__(self, inputs, *args, **kwargs):
         return self._model(inputs, *args, **kwargs)
 
-    def train_step(self, states, target_q_values, actions_one_hot):
-        self._model.train_step((states, target_q_values, actions_one_hot))
+    def train_step(self, states, target_q_values, actions_one_hot, is_terminal_state):
+        self._model.train_step((states, target_q_values, actions_one_hot, is_terminal_state))
 
     def copy_variables(self, other: 'Model'):
         self._model.set_weights(other._model.get_weights())
@@ -75,21 +75,21 @@ class Model:
             x = layers.Conv2D(32, (3, 3), strides=(1, 1),
                               activation='relu',
                               # default parameters result in He initialization that work better with relu activation
-                              kernel_initializer=VarianceScaling())(inputs)
+                              kernel_initializer=RandomNormal())(inputs)
             x = layers.Conv2D(64, (2, 2), strides=(1, 1),
                               activation='relu',
                               # default parameters result in He initialization that work better with relu activation
-                              kernel_initializer=VarianceScaling())(x)
+                              kernel_initializer=RandomNormal())(x)
             x = layers.Flatten()(x)
-            x = layers.Dense(256, activation='relu', kernel_initializer=VarianceScaling())(x)
-            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
+            x = layers.Dense(256, activation='relu', kernel_initializer=RandomNormal())(x)
+            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=RandomNormal())(x)
             model = CustomKerasModel(inputs, outputs)
 
             model.compile(optimizer=optimizers.RMSprop(
                             learning_rate=LEARNING_RATE, momentum=0.95
                           ),
-                          loss=losses.MeanSquaredError(),
+                          loss=losses.Huber(),
                           metrics=['accuracy'])
 
-        model.summary()
+        # model.summary()
         return model

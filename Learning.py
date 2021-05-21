@@ -18,8 +18,8 @@ register(
 
 
 RENDER_ENV = True
-MONITOR_AGENTS_INPUT = [1, 2]
-SERVE_VISUALIZATION = False
+MONITOR_AGENTS_INPUT = []
+SERVE_VISUALIZATION = True
 
 if MONITOR_AGENTS_INPUT:
     import cv2
@@ -92,7 +92,8 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
 
             actions = [None] * len(agents)
 
-            futures_to_agent = {_threadPool.submit(agent.step, last_reward, new_state, training=train): agent
+            futures_to_agent = {_threadPool.submit(agent.step, last_reward, new_state,
+                                                   is_terminal_state=False, training=train): agent
                                 for agent, last_reward, new_state in zip(agents, last_rewards, observations)}
 
             for future in concurrent.futures.as_completed(futures_to_agent):
@@ -154,7 +155,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
 
 def make_env():
     tabular_rl = False
-    return gym.make('CommonsGame-v0', num_agents=cfg().NUM_AGENTS, map_sketch=cfg().MAP, visual_radius=4,
+    return gym.make('CommonsGame-v0', num_agents=cfg().NUM_AGENTS, map_sketch=cfg().MAP, visual_radius=3,
                     full_state=True, tabular_state=tabular_rl)
 
 

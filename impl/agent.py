@@ -1,6 +1,6 @@
 import os
 import random
-from typing import Tuple, Union
+from typing import Union
 
 import numpy as np
 
@@ -140,7 +140,7 @@ class Agent:
         num_actions = int(np.prod(self._action_size))
         actions_one_hot = np.eye(num_actions, dtype=np.float32).reshape(num_actions, *self._action_size)[last_actions]
 
-        self._online_network.train_step(last_states, target_q_values, actions_one_hot)
+        self._online_network.train_step(last_states, target_q_values, actions_one_hot, is_terminal_state)
 
     def update_target_network(self):
         self._target_network.copy_variables(self._online_network)
