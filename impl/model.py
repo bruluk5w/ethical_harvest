@@ -72,11 +72,11 @@ class Model:
 
         else:
             inputs = layers.Input(shape=self._input_size)
-            x = layers.Conv2D(32, (5, 5), strides=(1, 1),
+            x = layers.Conv2D(32, (3, 3), strides=(1, 1),
                               activation='relu',
                               # default parameters result in He initialization that work better with relu activation
                               kernel_initializer=VarianceScaling())(inputs)
-            x = layers.Conv2D(64, (3, 3), strides=(1, 1),
+            x = layers.Conv2D(64, (2, 2), strides=(1, 1),
                               activation='relu',
                               # default parameters result in He initialization that work better with relu activation
                               kernel_initializer=VarianceScaling())(x)

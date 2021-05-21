@@ -30,7 +30,8 @@ _AGENT_INPUT_MONITORS = []
 
 def translate_state(state):
     if actions.SHOOT in cfg().REMOVED_ACTIONS:
-        state[state == 0.2] = 0
+        # state[state == 0.2] = 0
+        pass
 
     return state
 
@@ -141,7 +142,7 @@ def game_loop(environment, episodes=10000, timesteps=1000, train=True, episode_c
 
 def make_env():
     tabular_rl = False
-    return gym.make('CommonsGame-v0', num_agents=cfg().NUM_AGENTS, map_sketch=cfg().MAP, visual_radius=3,
+    return gym.make('CommonsGame-v0', num_agents=cfg().NUM_AGENTS, map_sketch=cfg().MAP, visual_radius=4,
                     full_state=True, tabular_state=tabular_rl)
 
 
@@ -152,11 +153,12 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_small_map_conv_net_1',
+        EXPERIMENT_NAME='inequality_small_map_conv_net_2',
         NUM_AGENTS=4,
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,
         USE_INEQUALITY_FOR_REWARD=True,
+        NUM_TORTURE_FRAMES=30,
     )
 
     save_cfg()
