@@ -176,7 +176,7 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_small_map_conv_net_4_neg_overperf_reward',
+        EXPERIMENT_NAME='inequality_small_map_conv_net_5_neg_overperf_reward',
         NUM_AGENTS=4,
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,

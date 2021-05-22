@@ -4,7 +4,7 @@ __match_nr = re.compile(r'\d+', re.ASCII)
 
 # Environment logic altering!
 TIMEOUT_FRAMES = 25
-TOO_MANY_APPLES = 10
+TOO_MANY_APPLES = 20
 AGENTS_CAN_GET_SICK = False
 AGENTS_HAVE_DIFFERENT_EFFICIENCY = True
 EFFICIENCY = 1  # To be altered for each agent

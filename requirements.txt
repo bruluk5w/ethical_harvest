@@ -5,6 +5,5 @@ matplotlib
 numpy
 scipy
 tensorflow
-flameprof
 bokeh
 opencv-python
