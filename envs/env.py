@@ -5,6 +5,8 @@ import numpy as np
 import gym
 from gym import spaces
 from pycolab import ascii_art
+
+from impl.config import cfg
 from utils import build_map, ObservationToArrayWithRGB
 from objects import PlayerSprite, AppleDrape, SightDrape, ShotDrape
 from constants import TIMEOUT_FRAMES
@@ -110,7 +112,7 @@ class CommonsGame(gym.Env):
         cv2.putText(board, plot_text, (40, 42),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     fontScale=0.4, color=(255, 255, 0), thickness=1)
-        cv2.imshow('Environment', cv2.cvtColor(board, cv2.COLOR_BGR2RGB))
+        cv2.imshow(cfg().EXPERIMENT_NAME, cv2.cvtColor(board, cv2.COLOR_BGR2RGB))
         cv2.waitKey(1)
 
     def get_observation(self):

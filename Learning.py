@@ -21,7 +21,7 @@ register(
 
 RENDER_ENV = True
 MONITOR_AGENTS_INPUT = []
-SERVE_VISUALIZATION = True
+SERVE_VISUALIZATION = False
 
 if MONITOR_AGENTS_INPUT:
     import cv2
@@ -176,19 +176,20 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_small_map_conv_net_2',
+        EXPERIMENT_NAME='inequality_small_map_conv_net_4_neg_overperf_reward',
         NUM_AGENTS=4,
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,
         USE_INEQUALITY_FOR_REWARD=True,
         NUM_TORTURE_FRAMES=10,
+        EXPLORE_PROBABILITY_MIN=0.05
     )
 
     save_cfg()
 
     if SERVE_VISUALIZATION:
         from impl.vis import vis
-        vis.serve_visualization()
+        vis.serve_visualization(port=5007)
 
     dumper = StatsWriter(get_trace_file_path())
 
