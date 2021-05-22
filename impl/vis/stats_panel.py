@@ -158,7 +158,7 @@ class StatsPanel:
     def _transform(self, arr: np.ndarray):
         if self._toggle_smooth_btn.active:
             window_size = self._smooth_size.value
-            return convolve(arr.astype(np.float32, copy=False), np.ones(window_size)/window_size, mode='nearest')
+            return convolve(arr.astype(np.float32, copy=False), np.ones(window_size)/window_size)
 
         return arr
 
