@@ -286,7 +286,7 @@ class AppleDrape(pythings.Drape):
                     donation_reward = -DONATION_REWARD if overperformance > 0 else DONATION_REWARD  # no punishment for donation if overperforming
                     overperformance_reward = 0.1 if args['donation'] else -overperformance * 0.2  # general penalty if overperforming
                     if overperformance_reward < 0:
-                        overperformance_reward = math.log2(-overperformance_reward + 1) / 1.0
+                        overperformance_reward = -math.log2(-overperformance_reward + 1) / 1.0
                     rewards.append(
                         args['rew'] * APPLE_GATHERING_REWARD +
                         args['greedy'] * TOO_MANY_APPLES_PUNISHMENT * (overperformance > 0) +  # no greedy punishment when underperforming (should allow everyone to have more apples than the minimum required if a lot are available)
