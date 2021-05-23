@@ -21,7 +21,7 @@ register(
 
 RENDER_ENV = True
 MONITOR_AGENTS_INPUT = []
-SERVE_VISUALIZATION = False
+SERVE_VISUALIZATION = True
 
 if MONITOR_AGENTS_INPUT:
     import cv2
@@ -176,7 +176,7 @@ if __name__ == '__main__':
         init_tensorflow()
 
     set_config(
-        EXPERIMENT_NAME='inequality_small_map_conv_net_5_neg_overperf_reward',
+        EXPERIMENT_NAME='inequality_small_map_conv_net_6_neg_overperf_reward',
         NUM_AGENTS=4,
         MAP=MAPS['smallMap'],
         TOP_BAR_SHOWS_INEQUALITY=True,

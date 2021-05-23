@@ -40,6 +40,24 @@ def gini(series: List[np.ndarray]):
     return result
 
 
+def mean_log_deviation(series):
+    if not series:
+        return None
+
+    arr = np.vstack(series).astype(np.float32)
+    np.add(arr, 0.005, out=arr)  # to avoid -inf for x=0
+    log_of_mean = np.empty_like(series[0], dtype=np.float32)
+    np.mean(arr, axis=0, out=log_of_mean)
+    np.log(log_of_mean, dtype=np.float32, out=log_of_mean)
+
+    mean_of_log = np.empty_like(series[0], dtype=np.float32)
+    log = np.log(arr, dtype=np.float32)
+    np.mean(log, axis=0, out=mean_of_log)
+
+    np.subtract(log_of_mean, mean_of_log, out=mean_of_log)
+    return mean_of_log
+
+
 class StatsPanel:
     def __init__(self, doc: Document):
         self._doc = doc
@@ -122,7 +140,8 @@ class StatsPanel:
                 SummaryProperties.EPISODE_START.value: s.summary.episode_start,
                 Properties.LAST_EXPLORE_PROBABILITY.value: s.agent_series[0].last_explore_probability[s.summary.episode_start],
                 'all_apples': t(s.summary.end_owned_apples + s.summary.total_donated_apples),
-                'gini': t(gini([s.agent_series[i].summary.end_owned_apples for i in range(len(s.agent_series))]))
+                'mld': t(mean_log_deviation([s.agent_series[i].summary.end_owned_apples for i in range(len(s.agent_series))])),
+                'gini': t(gini([s.agent_series[i].summary.end_owned_apples for i in range(len(s.agent_series))])),
             }
 
             agent_key = lambda idx, property: 'agent_{}_{}'.format(idx, property.value)
@@ -165,6 +184,18 @@ class StatsPanel:
                     color=color.blue,
                     source=self._episode_summary_src,
                     line_width=2,
+                    muted_alpha=0.1,
+                    legend_label='Gini Index',
+                )
+
+                self._gini_plot.line(
+                    x=SummaryProperties.EPISODE_START.value,
+                    y='mld',
+                    color=color.black,
+                    source=self._episode_summary_src,
+                    line_width=2,
+                    muted_alpha=0.1,
+                    legend_label='Mean Log Deviation',
                 )
 
                 self._make_summary_plot('all', color.red, color.salmon, color.darksalmon, lambda p: p.value)
