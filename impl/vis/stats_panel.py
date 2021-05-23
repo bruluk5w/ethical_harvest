@@ -75,7 +75,7 @@ class StatsPanel:
             figure(x_axis_label='frames', y_axis_label='num_apples', title='Apples at end of episode (\"all\" is sum)', height=300, sizing_mode='scale_width'),
             figure(x_axis_label='frames', y_axis_label='num_apples', title='Average apples per episode', height=300, sizing_mode='scale_width'),
             figure(x_axis_label='frames', y_axis_label='num_apples', title='Donations per episode', height=300, sizing_mode='scale_width'),
-            figure(x_axis_label='frames', y_axis_label='G', title='Gini Coefficient', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='G', title='Equality at end of episode by number of owned apples', height=300, sizing_mode='scale_width'),
         )
 
         self._p_explore_plot, self._q_plot, self._reward_plot, self._apple_end_plot, self._apple_avg_plot, \
