@@ -1,7 +1,7 @@
 from functools import partial
-from itertools import cycle, chain
+from itertools import cycle, chain, permutations
 from textwrap import wrap
-from typing import Union, Callable
+from typing import Union, Callable, List
 
 import numpy as np
 from bokeh import palettes
@@ -19,6 +19,27 @@ from impl.stats_to_file import QStatsReader, get_trace_file_path
 from impl.vis.data_sink import DataSink
 
 
+def gini(series: List[np.ndarray]):
+    if not series:
+        return None
+
+    total = np.zeros_like(series[0], dtype=np.float32)
+    for i in range(len(series)):
+        total = np.add(total, series[i], out=total)
+
+    np.multiply(total, 2 * len(series), out=total)
+
+    result = np.zeros_like(series[0], dtype=np.float32)
+    intermediate = np.zeros_like(series[0])
+    for i, j in permutations(range(len(series)), 2):
+        np.subtract(series[i], series[j], out=intermediate)
+        np.abs(intermediate, out=intermediate)
+        np.add(result, intermediate, out=result)
+
+    np.divide(result, total, out=result)
+    return result
+
+
 class StatsPanel:
     def __init__(self, doc: Document):
         self._doc = doc
@@ -33,18 +54,22 @@ class StatsPanel:
             figure(x_axis_label='frames', y_axis_label='p', title='explore_probability', height=200, sizing_mode='scale_width'),
             figure(x_axis_label='frames', y_axis_label='q estimate', title='Q estimates per episode (\"all\" is mean)', height=300, sizing_mode='scale_width'),
             figure(x_axis_label='frames', y_axis_label='reward', title='Summed rewards per episode (\"all\" is mean)', height=300, sizing_mode='scale_width'),
-            figure(x_axis_label='frames', y_axis_label='num_apples', title='Apples per episode (\"all\" is sum)', height=300, sizing_mode='scale_width'),
-            figure(x_axis_label='frames', y_axis_label='num_apples', title='Donations per episode (\"all\" is sum)', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='num_apples', title='Apples at end of episode (\"all\" is sum)', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='num_apples', title='Average apples per episode', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='num_apples', title='Donations per episode', height=300, sizing_mode='scale_width'),
+            figure(x_axis_label='frames', y_axis_label='G', title='Gini Coefficient', height=300, sizing_mode='scale_width'),
         )
 
-        self._p_explore_plot, self._q_plot, self._reward_plot, self._apple_plot, self._donations_plot = self._all_plots
+        self._p_explore_plot, self._q_plot, self._reward_plot, self._apple_end_plot, self._apple_avg_plot, \
+            self._donations_plot, self._gini_plot = self._all_plots
+
         # link x range
         last_plot = self._all_plots[0]
         for plot in self._all_plots[1:]:
             plot.x_range = last_plot.x_range
 
         self._episode_summary_src = ColumnDataSource()
-        # self._episode_detail_src = ColumnDataSource()
+
         self._has_plot = False
 
         self._data_sink = DataSink(self._doc, self.update_data)
@@ -97,6 +122,7 @@ class StatsPanel:
                 SummaryProperties.EPISODE_START.value: s.summary.episode_start,
                 Properties.LAST_EXPLORE_PROBABILITY.value: s.agent_series[0].last_explore_probability[s.summary.episode_start],
                 'all_apples': t(s.summary.end_owned_apples + s.summary.total_donated_apples),
+                'gini': t(gini([s.agent_series[i].summary.end_owned_apples for i in range(len(s.agent_series))]))
             }
 
             agent_key = lambda idx, property: 'agent_{}_{}'.format(idx, property.value)
@@ -123,7 +149,7 @@ class StatsPanel:
                     source=self._episode_summary_src
                 )
 
-                self._apple_plot.line(
+                self._apple_end_plot.line(
                     x=SummaryProperties.EPISODE_START.value,
                     y='all_apples',
                     color=color.green,
@@ -131,6 +157,14 @@ class StatsPanel:
                     line_width=2,
                     muted_alpha=0.1,
                     legend_label='all incl. pool',
+                )
+
+                self._gini_plot.line(
+                    x=SummaryProperties.EPISODE_START.value,
+                    y='gini',
+                    color=color.blue,
+                    source=self._episode_summary_src,
+                    line_width=2,
                 )
 
                 self._make_summary_plot('all', color.red, color.salmon, color.darksalmon, lambda p: p.value)
@@ -197,40 +231,40 @@ class StatsPanel:
             muted_alpha=0.1,
             legend_label='{}'.format(name),
         )
-        if name == 'all':
-            apples_renderer = self._apple_plot.line(
-                x=src_key(SummaryProperties.EPISODE_START),
-                y=src_key(SummaryProperties.END_OWNED_APPLES),
-                color=line_color,
-                muted_alpha=0.1,
-                source=self._episode_summary_src,
-                legend_label='owned by all at end'.format(name),
-            )
-        else:
-            apples_renderer = self._apple_plot.line(
-                x=src_key(SummaryProperties.EPISODE_START),
-                y=src_key(SummaryProperties.AVG_OWNED_APPLES),
-                color=line_color,
-                muted_alpha=0.1,
-                source=self._episode_summary_src,
-                legend_label='mean and max owned by {}'.format(name),
-            )
 
-            apples_band = Band(
-                base=src_key(SummaryProperties.EPISODE_START),
-                lower=0.0,
-                upper=src_key(SummaryProperties.MAX_OWNED_APPLES),
-                source=self._episode_summary_src,
-                level='underlay',
-                line_color=band_line_color,
-                line_alpha=1.0,
-                fill_color=band_fill_color,
-                fill_alpha=0.7,
-                line_width=1,
-            )
+        self._apple_end_plot.line(
+            x=src_key(SummaryProperties.EPISODE_START),
+            y=src_key(SummaryProperties.END_OWNED_APPLES),
+            color=line_color,
+            muted_alpha=0.1,
+            source=self._episode_summary_src,
+            legend_label='owned by {} at end'.format(name),
+        )
 
-            self._apple_plot.add_layout(apples_band)
-            apples_renderer.js_on_change('muted', CustomJS(args=dict(band=apples_band), code='band.visible = !cb_obj.muted;'))
+        avg_apples_renderer = self._apple_avg_plot.line(
+            x=src_key(SummaryProperties.EPISODE_START),
+            y=src_key(SummaryProperties.AVG_OWNED_APPLES),
+            color=line_color,
+            muted_alpha=0.1,
+            source=self._episode_summary_src,
+            legend_label='mean and max owned by {}'.format(name),
+        )
+
+        apples_band = Band(
+            base=src_key(SummaryProperties.EPISODE_START),
+            lower=0.0,
+            upper=src_key(SummaryProperties.MAX_OWNED_APPLES),
+            source=self._episode_summary_src,
+            level='underlay',
+            line_color=band_line_color,
+            line_alpha=1.0,
+            fill_color=band_fill_color,
+            fill_alpha=0.7,
+            line_width=1,
+        )
+
+        self._apple_avg_plot.add_layout(apples_band)
+        avg_apples_renderer.js_on_change('muted', CustomJS(args=dict(band=apples_band), code='band.visible = !cb_obj.muted;'))
 
         self._donations_plot.line(
             x=src_key(SummaryProperties.EPISODE_START),

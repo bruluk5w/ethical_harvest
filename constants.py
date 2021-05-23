@@ -16,7 +16,7 @@ RESPAWN_PROBABILITIES = [0.01, 0.02, 0.04]
 DONATION_REWARD = -0.5
 TOOK_DONATION_REWARD = 0.5
 APPLE_GATHERING_REWARD = 1.0
-DID_NOTHING_BECAUSE_MANY_APPLES_REWARD = 0.1  # related with sustainability probably
+DID_NOTHING_BECAUSE_MANY_APPLES_REWARD = 0.05  # related with sustainability probably
 
 # Negative rewards
 TOO_MANY_APPLES_PUNISHMENT = -1.0  # related with sustainability probably
