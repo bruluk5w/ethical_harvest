@@ -20,7 +20,7 @@ register(
 
 
 RENDER_ENV = True
-MONITOR_AGENTS_INPUT = []
+MONITOR_AGENTS_INPUT = []  # set to the indices of agents whose model input should be shown
 SERVE_VISUALIZATION = False
 
 # Settings for evaluating an agent
