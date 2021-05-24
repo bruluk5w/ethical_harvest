@@ -12,11 +12,11 @@ from impl.stats import Stats, AgentSeries, Summary
 _file_conditions = defaultdict((lambda: Condition()))  # type: Dict[str, Condition]
 
 
-def get_trace_file_path(base_path=None):
+def get_trace_file_path(base_path=None, is_evaluation=False):
     if base_path is None:
         base_path = get_storage()
 
-    return os.path.join(base_path, 'trace.txt')
+    return os.path.join(base_path, 'trace_eval.txt' if is_evaluation else 'trace.txt')
 
 
 class StatsWriter:

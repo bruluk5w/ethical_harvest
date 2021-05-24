@@ -21,7 +21,12 @@ register(
 
 RENDER_ENV = True
 MONITOR_AGENTS_INPUT = []
-SERVE_VISUALIZATION = True
+SERVE_VISUALIZATION = False
+
+# Settings for evaluating an agent
+EVALUATE_EXPERIMENT = None  # set to the name of the subfolder in the working directory that containes the saved experiment data (the one that contains the folder 'models' and 'weights'
+EPISODE_NUMBER = None  # set to the number of the episode for which the agents should load their model weights. Must be a number for which the weights are available in the 'weights' subfolder
+
 
 if MONITOR_AGENTS_INPUT:
     import cv2
@@ -175,27 +180,43 @@ if __name__ == '__main__':
         from impl import init_tensorflow
         init_tensorflow()
 
-    set_config(
-        EXPERIMENT_NAME='inequality_small_map_conv_net_6_neg_overperf_reward',
-        NUM_AGENTS=4,
-        MAP=MAPS['smallMap'],
-        TOP_BAR_SHOWS_INEQUALITY=True,
-        USE_INEQUALITY_FOR_REWARD=True,
-        NUM_TORTURE_FRAMES=10,
-        EXPLORE_PROBABILITY_MIN=0.05
-    )
+    if EVALUATE_EXPERIMENT is None:
+        set_config(
+            EXPERIMENT_NAME='default',
+            NUM_AGENTS=4,
+            MAP=MAPS['smallMap'],
+            TOP_BAR_SHOWS_INEQUALITY=True,
+            USE_INEQUALITY_FOR_REWARD=True,
+            NUM_TORTURE_FRAMES=10,
+            EXPLORE_PROBABILITY_MIN=0.05
+        )
 
-    save_cfg()
+        save_cfg()
 
-    if SERVE_VISUALIZATION:
-        from impl.vis import vis
-        vis.serve_visualization(port=5007)
+        if SERVE_VISUALIZATION:
+            from impl.vis import vis
 
-    dumper = StatsWriter(get_trace_file_path())
+            vis.serve_visualization(port=5007)
 
-    game_loop(
-        make_env(),
-        episode_callback=dumper.on_episode_end,
-        frame_callback=dumper.on_episode_frame,
-        verbose=False
-    )
+        dumper = StatsWriter(get_trace_file_path())
+
+        game_loop(
+            make_env(),
+            episode_callback=dumper.on_episode_end,
+            frame_callback=dumper.on_episode_frame,
+            verbose=False
+        )
+    else:
+        set_config(
+            EXPERIMENT_NAME=EVALUATE_EXPERIMENT
+        )
+
+        dumper = StatsWriter(get_trace_file_path(is_evaluation=True))
+
+        game_loop(
+            make_env(),
+            start_episode=EPISODE_NUMBER,
+            episode_callback=dumper.on_episode_end,
+            frame_callback=dumper.on_episode_frame,
+            verbose=False
+        )
