@@ -10,7 +10,7 @@ from gym.envs.registration import register
 from constants import MAPS
 from envs import actions
 from impl.agent import Agent
-from impl.config import cfg, save_cfg, set_config, get_storage
+from impl.config import cfg, save_cfg, set_config, get_storage, load_cfg
 from impl.stats_to_file import StatsWriter, get_trace_file_path
 
 register(
@@ -25,7 +25,7 @@ SERVE_VISUALIZATION = False
 
 # Settings for evaluating an agent
 EVALUATE_EXPERIMENT = None  # set to the name of the subfolder in the working directory that containes the saved experiment data (the one that contains the folder 'models' and 'weights'
-EPISODE_NUMBER = None  # set to the number of the episode for which the agents should load their model weights. Must be a number for which the weights are available in the 'weights' subfolder
+EPISODE_NUMBER = None # set to the number of the episode for which the agents should load their model weights. Must be a number for which the weights are available in the 'weights' subfolder
 
 
 if MONITOR_AGENTS_INPUT:
@@ -211,6 +211,8 @@ if __name__ == '__main__':
             EXPERIMENT_NAME=EVALUATE_EXPERIMENT
         )
 
+        load_cfg()
+
         dumper = StatsWriter(get_trace_file_path(is_evaluation=True))
 
         game_loop(
@@ -218,5 +220,6 @@ if __name__ == '__main__':
             start_episode=EPISODE_NUMBER,
             episode_callback=dumper.on_episode_end,
             frame_callback=dumper.on_episode_frame,
-            verbose=False
+            verbose=False,
+            train=False
         )

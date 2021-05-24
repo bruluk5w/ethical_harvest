@@ -5,7 +5,6 @@ from tensorflow.keras.initializers import VarianceScaling, RandomNormal
 from tensorflow.keras.models import load_model
 
 LEARNING_RATE = 0.001
-DENSE_MODEL = False
 
 
 class CustomKerasModel(KerasModel):
@@ -36,7 +35,7 @@ class Model:
         if model_path is None:
             self._model = self._create_model()
         else:
-            self._model = load_model(model_path)
+            self._model = self._create_model()  #load_model(model_path, custom_objects={'CustomKerasModel': CustomKerasModel})
 
     def __call__(self, inputs, *args, **kwargs):
         return self._model(inputs, *args, **kwargs)
@@ -54,39 +53,26 @@ class Model:
         self._model.save_weights(weights_path)
 
     def load_weights(self, weights_path):
-        self._model.load_weights(weights_path)
+        self._model.load_weights(weights_path).expect_partial()
 
     def _create_model(self):
-        if DENSE_MODEL:
-            inputs = layers.Input(shape=self._input_size)
-            x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(inputs)
-            x = layers.Flatten()(x)
-            x = layers.Dense(128, activation='relu', kernel_initializer=VarianceScaling())(x)
-            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=VarianceScaling())(x)
-            model = CustomKerasModel(inputs, outputs)
+        inputs = layers.Input(shape=self._input_size)
+        x = layers.Conv2D(32, (3, 3), strides=(1, 1),
+                          activation='relu',
+                          kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(inputs)
+        x = layers.Conv2D(64, (2, 2), strides=(1, 1),
+                          activation='relu',
+                          kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(x)
+        x = layers.Flatten()(x)
+        x = layers.Dense(256, activation='relu', kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(x)
+        outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(x)
+        model = CustomKerasModel(inputs, outputs)
 
-            model.compile(optimizer=optimizers.Adadelta(learning_rate=LEARNING_RATE),
-                          loss=losses.Huber(),
-                          metrics=['accuracy'])
-
-        else:
-            inputs = layers.Input(shape=self._input_size)
-            x = layers.Conv2D(32, (3, 3), strides=(1, 1),
-                              activation='relu',
-                              kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(inputs)
-            x = layers.Conv2D(64, (2, 2), strides=(1, 1),
-                              activation='relu',
-                              kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(x)
-            x = layers.Flatten()(x)
-            x = layers.Dense(256, activation='relu', kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(x)
-            outputs = layers.Dense(np.prod(self._output_size), activation='relu', kernel_initializer=RandomNormal(mean=0.05, stddev=0.3))(x)
-            model = CustomKerasModel(inputs, outputs)
-
-            model.compile(optimizer=optimizers.Adadelta(
-                            learning_rate=0.5,
-                          ),
-                          loss=losses.Huber(),
-                          metrics=['accuracy'])
+        model.compile(optimizer=optimizers.Adadelta(
+                        learning_rate=0.5,
+                      ),
+                      loss=losses.Huber(),
+                      metrics=['accuracy'])
 
         # model.summary()
         return model

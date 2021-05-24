@@ -85,18 +85,17 @@ class Agent:
             return None
 
         action = self._policy(new_state, training)
-        if training:
-            if self._last_state is not None:
-                self._replay_buffer.remember(ReplayFrame(last_state=self._last_state, last_action=self._last_action,
-                                                         reward=last_reward, next_state=new_state,
-                                                         is_terminal_state=is_terminal_state))
+        if self._last_state is not None:
+            self._replay_buffer.remember(ReplayFrame(last_state=self._last_state, last_action=self._last_action,
+                                                     reward=last_reward, next_state=new_state,
+                                                     is_terminal_state=is_terminal_state))
 
-            if len(self._replay_buffer) >= cfg().REPLAY_BUFFER_MIN_LENGTH_FOR_USE:
-                self._train_network()
+        if len(self._replay_buffer) >= cfg().REPLAY_BUFFER_MIN_LENGTH_FOR_USE:
+            self._train_network()
 
-                update_freq = cfg().TARGET_NETWORK_UPDATE_FREQUENCY
-                if update_freq > 0 and not self._frame % update_freq:
-                    self.update_target_network()
+            update_freq = cfg().TARGET_NETWORK_UPDATE_FREQUENCY
+            if update_freq > 0 and not self._frame % update_freq:
+                self.update_target_network()
 
         self._last_state = new_state
         self._last_action = action
@@ -111,11 +110,14 @@ class Agent:
             self.last_explore_probability = p_explore = \
                 max(cfg().EXPLORE_PROBABILITY_MAX - (self._frame * cfg().EXPLORATION_ANNEALING),
                     cfg().EXPLORE_PROBABILITY_MIN)
-            if p_explore > random.random():
-                self.last_online_q_values = None
-                return self._random_action()
+
         else:
-            self.last_explore_probability = 0.0
+            self.last_explore_probability = p_explore = (
+                1.0 if len(self._replay_buffer) <= cfg().REPLAY_BUFFER_MIN_LENGTH_FOR_USE else 0.0)
+
+        if p_explore > random.random():
+            self.last_online_q_values = None
+            return self._random_action()
 
         self.last_online_q_values = qvalues = self._online_network(np.expand_dims(new_state, 0))
         return np.squeeze(qvalues).argmax().item()
