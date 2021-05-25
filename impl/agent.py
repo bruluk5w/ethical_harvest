@@ -129,7 +129,6 @@ class Agent:
         last_states, next_states, last_actions, rewards, is_terminal_state = \
             self._replay_buffer.sample(cfg().MINI_BATCH_SIZE)
 
-        # should this be the online network for double dqn?
         next_action = np.argmax(self._online_network(next_states).numpy(), axis=1)
         # the target values of the q values that were chosen in the individual frames
         qs = self._target_network(next_states).numpy()
