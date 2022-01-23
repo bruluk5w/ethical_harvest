@@ -1,4 +1,8 @@
 # Ethical harvest
+Demo Video:
+
+[![VideoStill](https://img.youtube.com/vi/0hQ8djAj-PA/0.jpg)](https://www.youtube.com/watch?v=0hQ8djAj-PA)
+-----------------------------------
 
 Based on the Harvest environment from: 
 *Leibo, J. Z., Zambaldi, V., Lanctot, M., Marecki, J., & Graepel, T. (2017). Multi-agent reinforcement learning in sequential social dilemmas. In Proceedings of the 16th Conference on Autonomous Agents and MultiAgent Systems (pp. 464-473).*
